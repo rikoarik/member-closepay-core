@@ -1,0 +1,5 @@
+/* Global CSS untuk NativeWind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+

@@ -1,0 +1,34 @@
+{
+  "member-base": {
+    "id": "member-base",
+    "name": "Member Base App",
+    "role": "member",
+    "theme": {
+      "primary": "#0066CC",
+      "primaryDark": "#0052A3",
+      "primaryLight": "#E6F2FF"
+    },
+    "homeVariant": "member",
+    "enabledFeatures": [],
+    "homeTabs": [
+      {
+        "id": "home",
+        "label": "Beranda",
+        "visible": true,
+        "order": 1
+      },
+      {
+        "id": "activity",
+        "label": "Aktivitas",
+        "visible": true,
+        "order": 2
+      },
+      {
+        "id": "news",
+        "label": "Berita",
+        "visible": true,
+        "order": 2
+      }
+    ]
+  }
+}

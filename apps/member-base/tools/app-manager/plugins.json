@@ -1,0 +1,63 @@
+{
+  "balance": {
+    "id": "balance",
+    "label": "Balance Ledger",
+    "description": "Core ledger plugin"
+  },
+  "payment": {
+    "id": "payment",
+    "label": "Payment Gateway",
+    "description": "Universal payment plugin"
+  },
+  "catalog": {
+    "id": "catalog",
+    "label": "Catalog",
+    "description": "Product/catalog management"
+  },
+  "order": {
+    "id": "order",
+    "label": "Order Management",
+    "description": "Order processing and tracking"
+  },
+  "reporting": {
+    "id": "reporting",
+    "label": "Reporting",
+    "description": "Analytics and reporting features"
+  },
+  "invoice": {
+    "id": "invoice",
+    "label": "Invoice",
+    "description": "Invoice generation and management"
+  },
+  "marketplace-fnb": {
+    "id": "marketplace-fnb",
+    "label": "Marketplace F&B",
+    "description": "Food & Beverage marketplace"
+  },
+  "marketplace-produk": {
+    "id": "marketplace-produk",
+    "label": "Marketplace Produk",
+    "description": "Product marketplace"
+  },
+  "bank-sampah": {
+    "id": "bank-sampah",
+    "label": "Bank Sampah",
+    "description": "Waste bank management"
+  },
+  "card-transaction": {
+    "id": "card-transaction",
+    "label": "Card Transaction",
+    "description": "Card-based transaction processing"
+  },
+  "donasi": {
+    "id": "donasi",
+    "label": "Donasi",
+    "description": "Donation management"
+  },
+  "kso": {
+    "id": "kso",
+    "label": "KSO",
+    "description": "Koperasi Serba Usaha features"
+  }
+}
+
