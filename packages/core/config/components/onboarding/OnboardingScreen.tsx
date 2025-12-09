@@ -495,7 +495,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               onPress={handleNext}
               activeOpacity={0.8}
             >
-              <Text style={styles.nextButtonText}>{t('common.next')}</Text>
+              <Text style={[styles.nextButtonText, { color: colors.surface }]}>{t('common.next')}</Text>
             </TouchableOpacity>
           ) : currentStep !== 'theme' && currentStep !== 'language' ? (
             <TouchableOpacity
@@ -503,7 +503,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               onPress={handleActivatePermission}
               activeOpacity={0.8}
             >
-              <Text style={styles.activateButtonText}>
+              <Text style={[styles.activateButtonText, { color: colors.surface }]}>
                 {t('onboarding.activate')}
               </Text>
             </TouchableOpacity>
@@ -513,7 +513,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
               onPress={handleNext}
               activeOpacity={0.8}
             >
-              <Text style={styles.nextButtonText}>{t('common.next')}</Text>
+              <Text style={[styles.nextButtonText, { color: colors.surface }]}>{t('common.next')}</Text>
             </TouchableOpacity>
           )}
         </View>

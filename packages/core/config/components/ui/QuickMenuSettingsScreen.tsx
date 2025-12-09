@@ -103,44 +103,44 @@ export const QuickMenuSettingsScreen: React.FC = () => {
       const iconSize = getIconSize('large');
       switch (iconName) {
         case 'payIPL':
-          return <ArrowDown2 size={iconSize} color="#3B82F6" variant="Bold" />;
+          return <ArrowDown2 size={iconSize} color={colors.info} variant="Bold" />;
         case 'emergency':
-          return <Call size={iconSize} color="#F59E0B" variant="Bold" />;
+          return <Call size={iconSize} color={colors.warning} variant="Bold" />;
         case 'guest':
-          return <People size={iconSize} color="#10B981" variant="Bold" />;
+          return <People size={iconSize} color={colors.success} variant="Bold" />;
         case 'ppob':
-          return <Game size={iconSize} color="#8B5CF6" variant="Bold" />;
+          return <Game size={iconSize} color={colors.info} variant="Bold" />;
         case 'transfer':
-          return <ArrowDown2 size={iconSize} color="#EF4444" variant="Bold" />;
+          return <ArrowDown2 size={iconSize} color={colors.error} variant="Bold" />;
         case 'payment':
-          return <Game size={iconSize} color="#6366F1" variant="Bold" />;
+          return <Game size={iconSize} color={colors.info} variant="Bold" />;
         case 'bill':
-          return <Game size={iconSize} color="#EC4899" variant="Bold" />;
+          return <Game size={iconSize} color={colors.error} variant="Bold" />;
         case 'topup':
-          return <ArrowUp2 size={iconSize} color="#22C55E" variant="Bold" />;
+          return <ArrowUp2 size={iconSize} color={colors.success} variant="Bold" />;
         case 'donation':
-          return <People size={iconSize} color="#F59E0B" variant="Bold" />;
+          return <People size={iconSize} color={colors.warning} variant="Bold" />;
         case 'marketplace':
-          return <Shop size={iconSize} color="#06B6D4" variant="Bold" />;
+          return <Shop size={iconSize} color={colors.info} variant="Bold" />;
         default:
-          return <Game size={iconSize} color="#8B5CF6" variant="Bold" />;
+          return <Game size={iconSize} color={colors.info} variant="Bold" />;
       }
     };
 
     // Get default background color
     const getDefaultBgColor = (iconName?: string): string => {
       switch (iconName) {
-        case 'payIPL': return '#DBEAFE';
-        case 'emergency': return '#FEF3C7';
-        case 'guest': return '#D1FAE5';
-        case 'ppob': return '#E9D5FF';
-        case 'transfer': return '#FEE2E2';
-        case 'payment': return '#E0E7FF';
-        case 'bill': return '#FCE7F3';
-        case 'topup': return '#DCFCE7';
-        case 'donation': return '#FEF3C7';
-        case 'marketplace': return '#E0F2FE';
-        default: return '#E5E7EB';
+        case 'payIPL': return colors.infoLight;
+        case 'emergency': return colors.warningLight;
+        case 'guest': return colors.successLight;
+        case 'ppob': return colors.infoLight;
+        case 'transfer': return colors.errorLight;
+        case 'payment': return colors.infoLight;
+        case 'bill': return colors.errorLight;
+        case 'topup': return colors.successLight;
+        case 'donation': return colors.warningLight;
+        case 'marketplace': return colors.infoLight;
+        default: return colors.borderLight || colors.surfaceSecondary || colors.surface;
       }
     };
 
@@ -203,7 +203,7 @@ export const QuickMenuSettingsScreen: React.FC = () => {
                 false: colors.border,
                 true: colors.primary,
               }}
-              thumbColor={item.enabled ? '#FFFFFF' : colors.textTertiary}
+              thumbColor={item.enabled ? colors.surface : colors.textTertiary}
               ios_backgroundColor={colors.border}
             />
           </View>
@@ -267,7 +267,7 @@ export const QuickMenuSettingsScreen: React.FC = () => {
               style={[
                 styles.saveButtonText,
                 {
-                  color: '#FFFFFF',
+                  color: colors.surface,
                   fontSize: getResponsiveFontSize('medium'),
                 },
               ]}

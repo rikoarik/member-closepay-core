@@ -10,7 +10,7 @@ import {
   Easing,
   LayoutChangeEvent,
 } from 'react-native';
-import { useTheme } from '../../../theme';
+import { useTheme } from '@core/theme';
 import {
   scale,
   moderateScale,
@@ -25,119 +25,6 @@ import { FontFamily } from '../../utils/fonts';
 export interface Tab {
   id: string;
   label: string;
-}
-
-/**
- * TabSwitcher Configuration
- * Konfigurasi untuk kustomisasi tampilan dan behavior TabSwitcher
- * 
- * @example
- * ```tsx
- * <TabSwitcher
- *   tabs={tabs}
- *   activeTab={activeTab}
- *   onTabChange={handleTabChange}
- *   variant="segmented"
- *   config={{
- *     activeTextColor: '#FFFFFF',
- *     inactiveTextColor: '#666666',
- *     indicatorColor: '#007AFF',
- *     fontSize: 14,
- *     tabPaddingHorizontal: 16,
- *     animationDuration: 300,
- *   }}
- * />
- * ```
- */
-export interface TabSwitcherConfig {
-  /**
-   * Warna untuk tab aktif
-   */
-  activeTextColor?: string;
-  /**
-   * Warna untuk tab tidak aktif
-   */
-  inactiveTextColor?: string;
-  /**
-   * Warna background untuk tab aktif (default variant)
-   */
-  activeBackgroundColor?: string;
-  /**
-   * Warna background untuk tab tidak aktif (default variant)
-   */
-  inactiveBackgroundColor?: string;
-  /**
-   * Warna indicator untuk segmented variant
-   */
-  indicatorColor?: string;
-  /**
-   * Warna background untuk segmented wrapper
-   */
-  wrapperBackgroundColor?: string;
-  /**
-   * Font size untuk tab text
-   */
-  fontSize?: number;
-  /**
-   * Font family untuk tab aktif
-   */
-  activeFontFamily?: string;
-  /**
-   * Font family untuk tab tidak aktif
-   */
-  inactiveFontFamily?: string;
-  /**
-   * Padding horizontal untuk tab
-   */
-  tabPaddingHorizontal?: number;
-  /**
-   * Padding vertical untuk tab
-   */
-  tabPaddingVertical?: number;
-  /**
-   * Border radius untuk tab (default variant)
-   */
-  tabBorderRadius?: number;
-  /**
-   * Border radius untuk segmented wrapper
-   */
-  wrapperBorderRadius?: number;
-  /**
-   * Gap antar tab (default variant)
-   */
-  tabGap?: number;
-  /**
-   * Padding horizontal untuk container
-   */
-  containerPaddingHorizontal?: number;
-  /**
-   * Durasi animasi dalam milliseconds
-   */
-  animationDuration?: number;
-  /**
-   * Tension untuk spring animation (segmented variant)
-   */
-  springTension?: number;
-  /**
-   * Friction untuk spring animation (segmented variant)
-   */
-  springFriction?: number;
-  /**
-   * Custom style untuk container
-   */
-  containerStyle?: any;
-  /**
-   * Custom style untuk wrapper (segmented variant)
-   */
-  wrapperStyle?: any;
-  /**
-   * Custom style untuk tab
-   */
-  tabStyle?: any;
-  /**
-   * Custom style untuk tab text
-   */
-  textStyle?: any;
 }
 
 interface TabSwitcherProps {
@@ -168,10 +55,6 @@ interface TabSwitcherProps {
    * Lebar pager (screen width) untuk interpolasi
    */
   pagerWidth?: number;
-  /**
-   * Konfigurasi untuk kustomisasi tampilan dan behavior
-   */
-  config?: TabSwitcherConfig;
 }
 
 interface TabLayout {
@@ -188,29 +71,8 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
   tabletPortraitMaxWidth,
   scrollX,
   pagerWidth,
-  config = {},
 }) => {
   const { colors, isDark } = useTheme();
-  
-  // Merge config dengan defaults
-  const activeTextColor = config.activeTextColor ?? '#FFFFFF';
-  const inactiveTextColor = config.inactiveTextColor ?? colors.text;
-  const activeBackgroundColor = config.activeBackgroundColor ?? colors.primary;
-  const inactiveBackgroundColor = config.inactiveBackgroundColor ?? (isDark ? colors.surfaceSecondary : colors.background);
-  const indicatorColor = config.indicatorColor ?? colors.primary;
-  const wrapperBackgroundColor = config.wrapperBackgroundColor ?? colors.surface;
-  const fontSize = config.fontSize ?? getResponsiveFontSize('small');
-  const activeFontFamily = config.activeFontFamily ?? FontFamily.monasans.semiBold;
-  const inactiveFontFamily = config.inactiveFontFamily ?? FontFamily.monasans.regular;
-  const tabPaddingHorizontal = config.tabPaddingHorizontal ?? scale(8);
-  const tabPaddingVertical = config.tabPaddingVertical ?? moderateVerticalScale(8);
-  const tabBorderRadius = config.tabBorderRadius ?? scale(20);
-  const wrapperBorderRadius = config.wrapperBorderRadius ?? scale(999);
-  const tabGap = config.tabGap ?? scale(12);
-  const containerPaddingHorizontal = config.containerPaddingHorizontal ?? getHorizontalPadding();
-  const animationDuration = config.animationDuration ?? 200;
-  const springTension = config.springTension ?? 80;
-  const springFriction = config.springFriction ?? 10;
   const scrollViewRef = useRef<ScrollView>(null);
   const tabLayouts = useRef<{ [key: string]: TabLayout }>({});
   const [containerWidth, setContainerWidth] = useState(0);
@@ -250,7 +112,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
       if (values && values[tab.id]) {
         Animated.timing(values[tab.id], {
           toValue: isActive ? 1 : 0,
-          duration: animationDuration,
+          duration: 200,
           easing: Easing.bezier(0.4, 0.0, 0.2, 1),
           useNativeDriver: false,
         }).start();
@@ -265,8 +127,8 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
         Animated.spring(indicatorLeft, {
           toValue: layout.x,
           useNativeDriver: true, // Enable native driver
-          tension: springTension,
-          friction: springFriction,
+          tension: 80,
+          friction: 10,
         }).start();
         setIndicatorWidth(layout.width);
       } else {
@@ -275,7 +137,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
         setIndicatorWidth(0);
       }
     }
-  }, [activeTab, tabs, isSegmented, scrollX, indicatorLeft, animationDuration, springTension, springFriction]);
+  }, [activeTab, tabs, isSegmented, scrollX, indicatorLeft]);
 
   // Memoized handler untuk tab press
   const handleTabPress = useCallback((tabId: string) => {
@@ -305,14 +167,12 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
     () => [
       styles.segmentedWrapper,
       {
-        backgroundColor: wrapperBackgroundColor,
-        borderRadius: wrapperBorderRadius,
+        backgroundColor: colors.surface,
         maxWidth: menuMaxWidth,
         alignSelf: menuMaxWidth ? 'center' : 'stretch' as 'center' | 'stretch',
       },
-      config.wrapperStyle,
     ],
-    [wrapperBackgroundColor, wrapperBorderRadius, menuMaxWidth, config.wrapperStyle]
+    [colors.surface, menuMaxWidth]
   );
 
   // Calculate interpolated indicator position if scrollX is present
@@ -362,13 +222,12 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
     () => [
       styles.slidingIndicator,
       {
-        backgroundColor: indicatorColor,
-        borderRadius: wrapperBorderRadius,
+        backgroundColor: colors.primary,
         transform: [{ translateX: interpolatedIndicatorTranslateX }],
         width: interpolatedIndicatorWidth,
       },
     ],
-    [indicatorColor, wrapperBorderRadius, interpolatedIndicatorTranslateX, interpolatedIndicatorWidth]
+    [colors.primary, interpolatedIndicatorTranslateX, interpolatedIndicatorWidth]
   );
 
   // Memoized container layout handler
@@ -379,7 +238,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
   // Segmented: fixed tabs, non-scrollable, dengan sliding indicator
   if (isSegmented) {
     return (
-      <View style={[styles.container, { paddingHorizontal: containerPaddingHorizontal }, config.containerStyle]}>
+      <View style={styles.container}>
         <View style={segmentedWrapperStyle} onLayout={handleContainerLayout}>
           {/* Sliding Indicator */}
           <Animated.View style={slidingIndicatorStyle} />
@@ -388,56 +247,36 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
             const isActive = activeTab === tab.id;
             const animatedValue = animatedValues.current[tab.id];
 
-            // const textColor = animatedValue.interpolate({
-            //   inputRange: [0, 1],
-            //   outputRange: [colors.text, '#FFFFFF'],
-            // });
-
-            // const textStyle = [
-            //   styles.tabText,
-            //   {
-            //     color: textColor,
-            //     fontFamily: isActive
-            //       ? FontFamily.monasans.semiBold
-            //       : FontFamily.monasans.regular,
-            //   },
-            // ];
-
             return (
               <TouchableOpacity
                 key={tab.id}
-                style={[styles.segmentedTab, { borderRadius: wrapperBorderRadius }, config.tabStyle]}
+                style={styles.segmentedTab}
                 activeOpacity={0.9}
                 onPress={() => handleTabPress(tab.id)}
                 onLayout={(event) => handleTabLayout(tab.id, event)}>
-                <View style={[styles.tab, {
-                  paddingHorizontal: tabPaddingHorizontal,
-                  paddingVertical: tabPaddingVertical,
-                }, config.tabStyle]}>
+                <View style={styles.tab}>
                   {/* Inactive Text (Base) */}
                   <Animated.Text
                     style={[
                       styles.tabText,
                       {
-                        fontSize,
-                        color: inactiveTextColor,
-                        fontFamily: inactiveFontFamily,
+                        color: colors.text,
+                        fontFamily: FontFamily.monasans.medium,
                         opacity: scrollX && pagerWidth
                           ? scrollX.interpolate({
-                              inputRange: [
-                                (index - 1) * pagerWidth,
-                                index * pagerWidth,
-                                (index + 1) * pagerWidth,
-                              ],
-                              outputRange: [1, 0, 1],
-                              extrapolate: 'clamp',
-                            })
+                            inputRange: [
+                              (index - 1) * pagerWidth,
+                              index * pagerWidth,
+                              (index + 1) * pagerWidth,
+                            ],
+                            outputRange: [1, 0, 1],
+                            extrapolate: 'clamp',
+                          })
                           : animatedValue.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [1, 0],
-                            }),
+                            inputRange: [0, 1],
+                            outputRange: [1, 0],
+                          }),
                       },
-                      config.textStyle,
                     ]}>
                     {tab.label}
                   </Animated.Text>
@@ -448,9 +287,9 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
                       styles.tabText,
                       {
                         position: 'absolute',
-                        fontSize,
-                        color: activeTextColor,
-                        fontFamily: activeFontFamily,
+                        // Use surface color untuk kontras dengan primary background (accent color)
+                        color: colors.surface,
+                        fontFamily: FontFamily.monasans.semiBold,
                         opacity: scrollX && pagerWidth
                           ? scrollX.interpolate({
                               inputRange: [
@@ -463,7 +302,6 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
                             })
                           : animatedValue,
                       },
-                      config.textStyle,
                     ]}>
                     {tab.label}
                   </Animated.Text>
@@ -478,7 +316,7 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
 
   // Default variant: scrollable pill tabs
   return (
-    <View style={[styles.container, { paddingHorizontal: containerPaddingHorizontal }, config.containerStyle]}>
+    <View style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -486,7 +324,6 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
         contentContainerStyle={[
           styles.scrollContent,
           isSegmented && styles.segmentedScrollContent,
-          { gap: tabGap },
         ]}
         style={styles.scrollView}>
         {tabs.map((tab) => {
@@ -496,14 +333,14 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
           const backgroundColor = animatedValue.interpolate({
             inputRange: [0, 1],
             outputRange: [
-              inactiveBackgroundColor,
-              activeBackgroundColor,
+              isDark ? colors.surfaceSecondary : colors.background,
+              colors.primary,
             ],
           });
 
           const textColor = animatedValue.interpolate({
             inputRange: [0, 1],
-            outputRange: [inactiveTextColor, activeTextColor],
+            outputRange: [colors.text, colors.surface],
           });
 
           const scale = animatedValue.interpolate({
@@ -519,24 +356,20 @@ export const TabSwitcher: React.FC<TabSwitcherProps> = React.memo(({
           const tabDynamicStyle = [
             styles.tab,
             {
-              paddingHorizontal: tabPaddingHorizontal,
-              paddingVertical: tabPaddingVertical,
-              borderRadius: tabBorderRadius,
               backgroundColor,
               transform: [{ scale }],
               opacity,
             },
-            config.tabStyle,
           ];
 
           const textStyle = [
             styles.tabText,
             {
-              fontSize,
               color: textColor,
-              fontFamily: isActive ? activeFontFamily : inactiveFontFamily,
+              fontFamily: isActive
+                ? FontFamily.monasans.semiBold
+                : FontFamily.monasans.regular,
             },
-            config.textStyle,
           ];
 
           return (
@@ -588,6 +421,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexDirection: 'row',
+    gap: scale(12),
     paddingRight: horizontalPadding,
   },
   segmentedScrollContent: {
@@ -596,6 +430,9 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   tab: {
+    paddingHorizontal: scale(8),
+    paddingVertical: moderateVerticalScale(8),
+    borderRadius: scale(20),
     minHeight: scale(30),
     justifyContent: 'center',
     alignItems: 'center',

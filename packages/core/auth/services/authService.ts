@@ -3,10 +3,9 @@
  * Unified AuthService dengan support untuk mock dan real API
  * Uses environment-based switch untuk determine implementation
  */
-import type { AuthService, AuthResponse, User } from '../types';
+import type { AuthService, AuthResponse, User, MetadataResponse, TagItem, SignUpData, SignUpResponse } from '../types';
 import { tokenService } from './tokenService';
-import { configService } from '../../config/services/configService';
-import axiosInstance from '../../config/services/axiosConfig';
+import { configService, axiosInstance } from '@core/config';
 import { encode as base64Encode } from 'base-64';
 
 // ============================================================================
@@ -366,5 +365,111 @@ export const authService: AuthService = {
     // Note: AsyncStorage.getItem is async, so this is a simplified check
     // In production, you'd want to check token validity and expiry
     return true; // Will be properly implemented with token check
+  },
+
+  /**
+   * Get metadata for sign up form
+   */
+  async getSignUpMetadata(companyId: string, userType: string = 'MEMBER'): Promise<MetadataResponse> {
+    try {
+      const response = await axiosInstance.get<MetadataResponse>(
+        `user/info/company/metadata/get?companyId=${companyId}&userType=${userType}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthService] Get metadata error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to get metadata');
+    }
+  },
+
+  /**
+   * Get tags for sign up
+   */
+  async getSignUpTags(companyId: string): Promise<TagItem[]> {
+    try {
+      const response = await axiosInstance.get<{ data: TagItem[] }>(
+        `user/info/company/tags/register/${companyId}`
+      );
+      return response.data.data.filter((tag) => tag.isSelfRegisterSupported);
+    } catch (error: any) {
+      console.error('[AuthService] Get tags error:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Register new user
+   */
+  async register(data: SignUpData, otp?: string): Promise<SignUpResponse> {
+    try {
+      const headers: Record<string, string> = {};
+      if (otp) {
+        headers['Otp-Security-Code'] = otp;
+      }
+
+      const response = await axiosInstance.post<SignUpResponse>(
+        'user/account/member/register',
+        {
+          ...data,
+          otp: otp || null,
+        },
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthService] Register error:', error);
+      throw new Error(error.response?.data?.message || 'Registration failed');
+    }
+  },
+
+  /**
+   * Send OTP for forgot password
+   */
+  async sendForgotPasswordOtp(email: string): Promise<void> {
+    try {
+      const response = await axiosInstance.post(
+        '/auth/account/forgot-password/send-otp',
+        { email }
+      );
+      console.log('[AuthService] Send forgot password OTP successful');
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthService] Send forgot password OTP error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to send OTP');
+    }
+  },
+
+  /**
+   * Verify OTP for forgot password
+   */
+  async verifyForgotPasswordOtp(email: string, otp: string): Promise<void> {
+    try {
+      const response = await axiosInstance.post(
+        '/auth/account/forgot-password/verify-otp',
+        { email, otp }
+      );
+      console.log('[AuthService] Verify forgot password OTP successful');
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthService] Verify forgot password OTP error:', error);
+      throw new Error(error.response?.data?.message || 'Invalid OTP');
+    }
+  },
+
+  /**
+   * Reset password with OTP
+   */
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+    try {
+      const response = await axiosInstance.post(
+        '/auth/account/forgot-password/reset',
+        { email, otp, newPassword }
+      );
+      console.log('[AuthService] Reset password successful');
+      return response.data;
+    } catch (error: any) {
+      console.error('[AuthService] Reset password error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to reset password');
+    }
   },
 };

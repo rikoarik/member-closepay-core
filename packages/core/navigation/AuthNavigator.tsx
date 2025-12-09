@@ -7,14 +7,11 @@ import React, { useState, useEffect, Suspense, ReactNode, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppState, AppStateStatus, View, Text, ActivityIndicator } from 'react-native';
-import { LoginScreen } from '../auth';
-import { OnboardingScreen, onboardingService } from '../config';
-import { ProfileScreen, EditProfileScreen } from '../account';
-import { LanguageSelectionScreen } from '../i18n';
-import { QuickMenuSettingsScreen } from '../config';
-import { ThemeSettingsScreen } from '../theme';
-import { useAuth } from '../auth/hooks/useAuth';
-import { PluginRegistry, getPluginComponentLoader } from '../config';
+import { LoginScreen, SignUpScreen, ForgotPasswordScreen, useAuth } from '@core/auth';
+import { OnboardingScreen, onboardingService, PluginRegistry, getPluginComponentLoader, QuickMenuSettingsScreen } from '@core/config';
+import { ProfileScreen, EditProfileScreen } from '@core/account';
+import { LanguageSelectionScreen } from '@core/i18n';
+import { ThemeSettingsScreen, useTheme } from '@core/theme';
 
 const Stack = createNativeStackNavigator();
 
@@ -32,12 +29,15 @@ export interface AuthNavigatorProps {
 }
 
 // Loading fallback component
-const LoadingFallback = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
-    <ActivityIndicator size="large" color="#0066CC" />
-    <Text style={{ marginTop: 16, color: '#6B7280' }}>Memuat...</Text>
-  </View>
-);
+const LoadingFallback = () => {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={{ marginTop: 16, color: colors.textSecondary }}>Memuat...</Text>
+    </View>
+  );
+};
 
 // Helper function to extract and filter valid children
 // Returns array of valid React elements only
@@ -238,11 +238,32 @@ export const AuthNavigator: React.FC<AuthNavigatorProps> = ({ appScreens }) => {
       <NavigationContainer>
         <Stack.Navigator
           screenOptions={{
-            headerShown: false,
+            headerShown: false, // Hide default iOS header for all screens
+            headerLeft: () => null, // Remove default back button for all screens
             animation: 'slide_from_right',
           }}>
           {!isAuthenticated ? (
-            <Stack.Screen name="Login" component={LoginScreen} />
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen 
+                name="SignUp" 
+                component={SignUpScreen}
+                options={{
+                  headerShown: false, // Hide default iOS header, use custom header
+                  headerLeft: () => null, // Remove default back button
+                  gestureEnabled: false, // Disable iOS swipe back gesture
+                }}
+              />
+              <Stack.Screen 
+                name="ForgotPassword" 
+                component={ForgotPasswordScreen}
+                options={{
+                  headerShown: false, // Hide default iOS header, use custom header
+                  headerLeft: () => null, // Remove default back button
+                  gestureEnabled: true, // Enable iOS swipe back gesture
+                }}
+              />
+            </>
           ) : (
             <>
               {/* App-specific screens */}

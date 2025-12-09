@@ -10,7 +10,8 @@ import {
   saveThemePreference,
   getTheme,
 } from '../services/themeService';
-import { configService } from '../../config/services/configService';
+import { themeColorService } from '../services/themeColorService';
+import { configService } from '@core/config';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -38,10 +39,24 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         const savedMode = await loadThemePreference();
         setThemeModeState(savedMode);
         
-        // Load accent color dari config
-        const config = configService.getConfig();
-        if (config?.branding?.primaryColor) {
-          setAccentColor(config.branding.primaryColor);
+        // Load accent color dari theme color service
+        // Development: akan load dari dummy service (file-based)
+        // Production: akan fetch dari backend dengan smart caching
+        if (__DEV__) {
+          // Development: load dari dummy service
+          const initialColor = themeColorService.getPrimaryColor();
+          if (initialColor) {
+            setAccentColor(initialColor);
+          }
+        } else {
+          // Production: fetch dari backend (dengan caching & cooldown)
+          await themeColorService.fetchFromBackend(true);
+          const initialColor = themeColorService.getPrimaryColor();
+          if (initialColor) {
+            setAccentColor(initialColor);
+          }
+          // Start polling untuk backend (dengan interval yang aman: 5 menit)
+          themeColorService.startPolling();
         }
       } catch (error) {
         console.error('Failed to initialize theme:', error);
@@ -53,28 +68,22 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     initializeTheme();
   }, []);
 
-  // Watch untuk perubahan config (accent color)
+  // Subscribe ke theme color service untuk realtime updates
   useEffect(() => {
-    const checkConfig = () => {
-      const config = configService.getConfig();
-      const newAccentColor = config?.branding?.primaryColor || null;
-      
-      // Only update jika berbeda untuk avoid unnecessary re-renders
-      if (newAccentColor !== accentColor) {
-        setAccentColor(newAccentColor);
+    // Subscribe ke theme color service
+    const unsubscribe = themeColorService.subscribe((color) => {
+      setAccentColor(color);
+      console.log('[Theme] Primary color updated:', color);
+    });
+
+    // Cleanup: stop polling jika ada
+    return () => {
+      unsubscribe();
+      if (!__DEV__) {
+        themeColorService.stopPolling();
       }
     };
-
-    // Check immediately
-    checkConfig();
-
-    // Check periodically untuk catch config updates (config bisa di-update dari luar)
-    // Note: Idealnya configService punya event emitter, tapi untuk sekarang kita check periodically
-    // Polling interval: 2 detik untuk balance antara responsiveness dan performance
-    const interval = setInterval(checkConfig, 2000);
-
-    return () => clearInterval(interval);
-  }, [accentColor]);
+  }, []);
 
   // Set theme mode and save to storage
   const setThemeMode = useCallback(async (mode: ThemeMode) => {

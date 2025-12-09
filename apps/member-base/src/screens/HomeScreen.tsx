@@ -3,14 +3,8 @@
  * Dashboard screen sesuai design
  * Responsive untuk semua device termasuk EDC
  */
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Animated,
-  Text,
-} from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, ScrollView, StyleSheet, Animated, Text, RefreshControl, InteractionManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '@core/theme';
@@ -21,10 +15,8 @@ import {
   TabSwitcher,
   useDimensions,
   type Tab,
-  configService,
-  TopBarRefreshControl,
-  useTopBarRefresh,
-  TopBarRefreshIndicator,
+  useConfig,
+  useRefreshWithConfig,
 } from '@core/config';
 import {
   TopBar,
@@ -44,8 +36,8 @@ export const HomeScreen = () => {
   const pagerRef = useRef<any>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  // Get config
-  const config = configService.getConfig();
+  // Get config (reactive via useConfig hook)
+  const { config } = useConfig();
   const homeVariant = config?.homeVariant || 'dashboard';
   
   // Memoize homeTabs to prevent unnecessary re-renders
@@ -56,11 +48,18 @@ export const HomeScreen = () => {
   // Determine tabs based on variant
   const tabs: Tab[] = React.useMemo(() => {
     if (homeVariant === 'member' && homeTabs.length > 0) {
-      // Use custom tabs from config
+      // Use custom tabs from config with i18n translation
       return homeTabs
         .filter(tab => tab.visible !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map(tab => ({ id: tab.id, label: tab.label }));
+        .map(tab => {
+          // Map tab id to i18n key, fallback to label from config if no i18n key found
+          const i18nKey = `home.${tab.id}`;
+          const translatedLabel = t(i18nKey);
+          // If translation exists and is different from key, use it; otherwise use config label
+          const label = translatedLabel && translatedLabel !== i18nKey ? translatedLabel : tab.label;
+          return { id: tab.id, label };
+        });
     }
     // Default tabs for dashboard variant
     return [
@@ -72,37 +71,26 @@ export const HomeScreen = () => {
   }, [homeVariant, homeTabs, t]);
 
   const [activeTab, setActiveTab] = useState<string>(tabs[0]?.id || 'beranda');
-  const [refreshing, setRefreshing] = useState(false);
   const tabRefreshFunctionsRef = useRef<{ [key: string]: () => void }>({});
 
   const registerTabRefresh = useCallback((tabId: string, refreshFn: () => void) => {
     tabRefreshFunctionsRef.current[tabId] = refreshFn;
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Call refresh function of active tab
-    const refreshFn = tabRefreshFunctionsRef.current[activeTab];
-    if (refreshFn) {
-      refreshFn();
-    }
-    // Reset refreshing state after delay
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, [activeTab]);
+  // Use useRefreshWithConfig untuk auto-refresh config + data tab
+  const { refresh: handleRefresh, isRefreshing: refreshing } = useRefreshWithConfig({
+    onRefresh: async () => {
+      // Call refresh function of active tab
+      const refreshFn = tabRefreshFunctionsRef.current[activeTab];
+      if (refreshFn) {
+        refreshFn();
+      }
+    },
+    enableConfigRefresh: true, // Auto-refresh config setiap pull-to-refresh
+  });
   
-  // Use TopBar refresh hook for pull distance tracking
-  const { 
-    pullDistance, 
-    spacingHeight, 
-    handleScroll: handleTopBarScroll,
-    handleScrollBeginDrag,
-    handleScrollEndDrag,
-  } = useTopBarRefresh(refreshing, handleRefresh);
-
-  // Render tab content based on variant
-  const renderTabContent = (tabId: string, index: number) => {
+  // Memoized tab content renderer untuk prevent unnecessary re-renders
+  const renderTabContent = useCallback((tabId: string, index: number) => {
     if (homeVariant === 'member') {
       // For member variant, render simple content or custom component
       const tabConfig = homeTabs.find(tab => tab.id === tabId);
@@ -162,7 +150,7 @@ export const HomeScreen = () => {
     
     // Default dashboard variant content
     return null; // Will be handled below
-  };
+  }, [homeVariant, homeTabs, screenWidth, activeTab, colors, getHorizontalPadding, registerTabRefresh]);
 
   const handleMenuPress = () => {
     navigation.navigate('Profile' as never);
@@ -176,6 +164,14 @@ export const HomeScreen = () => {
     return tabs.findIndex(tab => tab.id === tabId);
   };
 
+  // Helper untuk menentukan tab mana yang harus dirender (lazy loading)
+  // Hanya render tab aktif, tab sebelumnya, dan tab berikutnya untuk performa
+  const shouldRenderTab = useCallback((tabId: string, index: number) => {
+    const activeIndex = tabs.findIndex(t => t.id === activeTab);
+    // Render tab aktif, tab sebelumnya, dan tab berikutnya
+    return Math.abs(index - activeIndex) <= 1;
+  }, [tabs, activeTab]);
+
   const handlePagerMomentumEnd = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
@@ -185,18 +181,41 @@ export const HomeScreen = () => {
     }
   }, [screenWidth, tabs, activeTab]);
 
+  // Debounced tab change untuk prevent lag
+  const tabChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleTabChange = useCallback((tabId: string) => {
-    setActiveTab(tabId);
-    if (pagerRef.current) {
-      const index = getTabIndex(tabId);
-      if (index >= 0) {
-        pagerRef.current.scrollTo({
-          x: index * screenWidth,
-          animated: true,
-        });
-      }
+    // Clear previous timeout
+    if (tabChangeTimeoutRef.current) {
+      clearTimeout(tabChangeTimeoutRef.current);
     }
-  }, [screenWidth, tabs]);
+    
+    // Update state immediately untuk UI feedback
+    setActiveTab(tabId);
+    
+    // Defer heavy scroll operation
+    tabChangeTimeoutRef.current = setTimeout(() => {
+      InteractionManager.runAfterInteractions(() => {
+        if (pagerRef.current) {
+          const index = getTabIndex(tabId);
+          if (index >= 0) {
+            pagerRef.current.scrollTo({
+              x: index * screenWidth,
+              animated: true,
+            });
+          }
+        }
+      });
+    }, 50);
+  }, [screenWidth, tabs, getTabIndex]);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tabChangeTimeoutRef.current) {
+        clearTimeout(tabChangeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Set posisi awal pager ke tab pertama
   useEffect(() => {
@@ -229,40 +248,33 @@ export const HomeScreen = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        stickyHeaderIndices={tabs.length > 0 ? [2, 3] : [2]}
+        stickyHeaderIndices={[2]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <TopBarRefreshControl
+          <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            hideNativeIndicator={true}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
-        onScroll={handleTopBarScroll}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={handleScrollEndDrag}
         scrollEventThrottle={16}
         bounces={true}
         alwaysBounceVertical={true}
       >
-        {/* Animated Spacing untuk Pull-to-Refresh */}
-        <Animated.View
+        {/* Spacer for native indicator */}
+        <View style={styles.refreshIndicatorContainer} />
+
+        {/* TopBar - Not sticky */}
+        <View
           style={[
+            styles.topBarContainer,
             {
-              height: spacingHeight,
+              paddingHorizontal: getHorizontalPadding(),
               backgroundColor: colors.background,
             },
           ]}
-          pointerEvents="none"
         >
-          <TopBarRefreshIndicator
-            pullDistance={pullDistance}
-            refreshing={refreshing}
-          />
-        </Animated.View>
-
-        {/* Top Bar - Sticky */}
-        <View style={[styles.topBarContainer, { paddingHorizontal: getHorizontalPadding(), backgroundColor: colors.background }]}>
           <TopBar
             notificationCount={unreadCount}
             onNotificationPress={handleNotificationPress}
@@ -272,7 +284,13 @@ export const HomeScreen = () => {
 
         {/* Tab Switcher - Sticky */}
         {tabs.length > 0 && (
-          <View style={[styles.section, { backgroundColor: colors.background }, { paddingHorizontal: getHorizontalPadding() }]}>
+          <View
+            style={[
+              styles.section,
+              { backgroundColor: colors.background },
+              { paddingHorizontal: getHorizontalPadding() },
+            ]}
+          >
             <TabSwitcher
               variant="segmented"
               tabs={tabs}
@@ -285,108 +303,147 @@ export const HomeScreen = () => {
         )}
 
         {/* Pager horizontal dengan scroll vertikal per tab */}
-        {homeVariant === 'member' ? (
-          // Member variant: simple tabs without balance card, menu, transaction history
-          <Animated.ScrollView
-            ref={pagerRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            decelerationRate="fast"
-            snapToInterval={screenWidth}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: true },
-            )}
-            onMomentumScrollEnd={handlePagerMomentumEnd}
-          >
-            {tabs.map((tab, index) => (
-              <View 
-                key={tab.id} 
-                style={{ width: screenWidth, flex: 1 }}
-                pointerEvents={activeTab === tab.id ? 'auto' : 'none'}
-              >
-                {renderTabContent(tab.id, index)}
-              </View>
-            ))}
-          </Animated.ScrollView>
-        ) : (
-          // Dashboard variant: default with balance card, transactions, etc.
-          <Animated.ScrollView
-            ref={pagerRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            decelerationRate="fast"
-            snapToInterval={screenWidth}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: true },
-            )}
-            onMomentumScrollEnd={handlePagerMomentumEnd}
-          >
-            {/* Beranda Page */}
-            <View 
-              style={{ width: screenWidth, flex: 1 }}
-              pointerEvents={activeTab === 'beranda' ? 'auto' : 'none'}
+        <View>
+          {homeVariant === 'member' ? (
+            // Member variant: simple tabs without balance card, menu, transaction history
+            <Animated.ScrollView
+              ref={pagerRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={8}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              decelerationRate="fast"
+              snapToInterval={screenWidth}
+              removeClippedSubviews={true}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                { useNativeDriver: true },
+              )}
+              onMomentumScrollEnd={handlePagerMomentumEnd}
+              onScrollBeginDrag={() => {
+                // Prevent tab change during drag untuk smoother experience
+              }}
             >
-              <BerandaTab 
-                isActive={activeTab === 'beranda'}
-                isVisible={activeTab === 'beranda'}
-              />
-            </View>
+              {tabs.map((tab, index) => {
+                // Lazy loading: hanya render tab aktif dan tab adjacent
+                if (!shouldRenderTab(tab.id, index)) {
+                  return (
+                    <View
+                      key={tab.id}
+                      style={{ width: screenWidth, flex: 1 }}
+                      pointerEvents="none"
+                    />
+                  );
+                }
+                
+                return (
+                  <View
+                    key={tab.id}
+                    style={{ width: screenWidth, flex: 1 }}
+                    pointerEvents={activeTab === tab.id ? 'auto' : 'none'}
+                  >
+                    {renderTabContent(tab.id, index)}
+                  </View>
+                );
+              })}
+            </Animated.ScrollView>
+          ) : (
+            // Dashboard variant: default with balance card, transactions, etc.
+            <Animated.ScrollView
+              ref={pagerRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              decelerationRate="fast"
+              snapToInterval={screenWidth}
+              removeClippedSubviews={true}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                { useNativeDriver: true },
+              )}
+              onMomentumScrollEnd={handlePagerMomentumEnd}
+              onScrollBeginDrag={() => {
+                // Prevent tab change during drag untuk smoother experience
+              }}
+            >
+              {/* Beranda Page */}
+              {shouldRenderTab('beranda', getTabIndex('beranda')) ? (
+                <View
+                  style={{ width: screenWidth, flex: 1 }}
+                  pointerEvents={activeTab === 'beranda' ? 'auto' : 'none'}
+                >
+                  <BerandaTab
+                    isActive={activeTab === 'beranda'}
+                    isVisible={activeTab === 'beranda'}
+                  />
+                </View>
+              ) : (
+                <View style={{ width: screenWidth, flex: 1 }} pointerEvents="none" />
+              )}
 
-            {/* Transactions Page */}
-            <View 
-              style={{ width: screenWidth, flex: 1 }}
-              pointerEvents={activeTab === 'transactions' ? 'auto' : 'none'}
-            >
-              <TransactionsTab
-                title="Kantin FKI UPI"
-                balance={2000000000}
-                showBalance={false}
-                onToggleBalance={() => {}}
-                onBalanceDetailPress={() => {}}
-                isActive={activeTab === 'transactions'}
-                isVisible={activeTab === 'transactions'}
-                onRefreshRequested={(refreshFn) => {
-                  registerTabRefresh('transactions', refreshFn);
-                }}
-              />
-            </View>
+              {/* Transactions Page */}
+              {shouldRenderTab('transactions', getTabIndex('transactions')) ? (
+                <View
+                  style={{ width: screenWidth, flex: 1 }}
+                  pointerEvents={activeTab === 'transactions' ? 'auto' : 'none'}
+                >
+                  <TransactionsTab
+                    title="Kantin FKI UPI"
+                    balance={2000000000}
+                    showBalance={false}
+                    onToggleBalance={() => {}}
+                    onBalanceDetailPress={() => {}}
+                    isActive={activeTab === 'transactions'}
+                    isVisible={activeTab === 'transactions'}
+                    onRefreshRequested={(refreshFn) => {
+                      registerTabRefresh('transactions', refreshFn);
+                    }}
+                  />
+                </View>
+              ) : (
+                <View style={{ width: screenWidth, flex: 1 }} pointerEvents="none" />
+              )}
 
-            {/* Analytics Page */}
-            <View 
-              style={{ width: screenWidth, flex: 1 }}
-              pointerEvents={activeTab === 'analytics' ? 'auto' : 'none'}
-            >
-              <AnalyticsTab 
-                isActive={activeTab === 'analytics'}
-                isVisible={activeTab === 'analytics'}
-              />
-            </View>
+              {/* Analytics Page */}
+              {shouldRenderTab('analytics', getTabIndex('analytics')) ? (
+                <View
+                  style={{ width: screenWidth, flex: 1 }}
+                  pointerEvents={activeTab === 'analytics' ? 'auto' : 'none'}
+                >
+                  <AnalyticsTab
+                    isActive={activeTab === 'analytics'}
+                    isVisible={activeTab === 'analytics'}
+                  />
+                </View>
+              ) : (
+                <View style={{ width: screenWidth, flex: 1 }} pointerEvents="none" />
+              )}
 
-            {/* News Page */}
-            <View 
-              style={{ width: screenWidth, flex: 1 }}
-              pointerEvents={activeTab === 'news' ? 'auto' : 'none'}
-            >
-              <NewsTab 
-                isActive={activeTab === 'news'}
-                isVisible={activeTab === 'news'}
-                onRefreshRequested={(refreshFn) => {
-                  registerTabRefresh('news', refreshFn);
-                }}
-              />
-            </View>
-          </Animated.ScrollView>
-        )}
+              {/* News Page */}
+              {shouldRenderTab('news', getTabIndex('news')) ? (
+                <View
+                  style={{ width: screenWidth, flex: 1 }}
+                  pointerEvents={activeTab === 'news' ? 'auto' : 'none'}
+                >
+                  <NewsTab
+                    isActive={activeTab === 'news'}
+                    isVisible={activeTab === 'news'}
+                    onRefreshRequested={(refreshFn) => {
+                      registerTabRefresh('news', refreshFn);
+                    }}
+                  />
+                </View>
+              ) : (
+                <View style={{ width: screenWidth, flex: 1 }} pointerEvents="none" />
+              )}
+            </Animated.ScrollView>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -402,9 +459,18 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  headerContent: {
+    width: '100%',
+  },
+  refreshIndicatorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: moderateVerticalScale(8),
+  },
   topBarContainer: {
     paddingBottom: moderateVerticalScale(8),
-    paddingTop: moderateVerticalScale(8),
+    paddingTop: 0,
+    marginTop: -moderateVerticalScale(6),
   },
   section: {
     paddingTop: moderateVerticalScale(16),

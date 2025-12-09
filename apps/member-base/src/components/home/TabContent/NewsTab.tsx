@@ -81,8 +81,12 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
   const navigation = useNavigation();
   const horizontalPadding = getHorizontalPadding();
 
-  // Generate all dummy data
-  const allNewsData = useMemo(() => generateDummyNews(), []);
+  // Generate all dummy data - hanya jika tab aktif atau visible (conditional rendering)
+  const allNewsData = useMemo(() => {
+    // Skip heavy computation jika tab tidak aktif dan tidak visible
+    if (!isActive && !isVisible) return [];
+    return generateDummyNews();
+  }, [isActive, isVisible]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterVisible, setFilterVisible] = useState(false);
@@ -98,8 +102,11 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
   const scrollPositionRef = useRef(0); // Preserve scroll position
   const flatListRef = useRef<FlatList>(null); // Ref for FlatList to restore scroll position
 
-  // Filter and sort news
+  // Filter and sort news - skip jika tab tidak aktif dan tidak visible
   const processedNews = useMemo(() => {
+    // Skip processing jika tab tidak aktif dan tidak visible
+    if (!isActive && !isVisible) return [];
+    
     let result = [...allNewsData];
 
     // Apply search filter
@@ -146,14 +153,15 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
     }
 
     return result;
-  }, [allNewsData, searchQuery, filter]);
+  }, [allNewsData, searchQuery, filter, isActive, isVisible]);
 
-  // Paginated data
+  // Paginated data - hanya load sesuai currentPage (10 item per page)
   const paginatedNews = useMemo(() => {
+    if (!isActive && !isVisible) return [];
     const startIndex = 0;
     const endIndex = currentPage * PAGE_SIZE;
     return processedNews.slice(startIndex, endIndex);
-  }, [processedNews, currentPage]);
+  }, [processedNews, currentPage, isActive, isVisible]);
 
   const hasMore = paginatedNews.length < processedNews.length;
 
@@ -188,7 +196,13 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
   }, [isInitialLoad]);
 
   const loadMore = useCallback(() => {
-    if (!isLoadingMore && hasMore && !refreshing) {
+    // Hanya load more jika:
+    // - Tidak sedang loading
+    // - Masih ada data
+    // - Tidak sedang refresh
+    // - Tab aktif
+    // - Bukan initial load (sudah ada data)
+    if (!isLoadingMore && hasMore && !refreshing && isActive && !isInitialLoad && paginatedNews.length > 0) {
       setIsLoadingMore(true);
       // Simulate loading delay
       setTimeout(() => {
@@ -196,7 +210,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
         setIsLoadingMore(false);
       }, 500);
     }
-  }, [isLoadingMore, hasMore, refreshing]);
+  }, [isLoadingMore, hasMore, refreshing, isActive, isInitialLoad, paginatedNews.length]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -230,16 +244,28 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
   ), [navigation]);
 
   const renderFooter = () => {
-    if (!isLoadingMore) return null;
-    // Show shimmer items instead of ActivityIndicator
+    // Show shimmer saat loading more
+    if (isLoadingMore && hasMore) {
+      return (
+        <View style={styles.footerShimmer}>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <NewsItemSkeleton key={`skeleton-footer-${index}`} />
+          ))}
+        </View>
+      );
+    }
+    
+    return null;
+  };
+
+  // Render placeholder jika tab tidak aktif dan tidak visible untuk menghemat resources
+  if (!isActive && !isVisible) {
     return (
-      <View style={styles.footerShimmer}>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <NewsItemSkeleton key={`skeleton-footer-${index}`} />
-        ))}
+      <View style={styles.container}>
+        <View style={styles.placeholder} />
       </View>
     );
-  };
+  }
 
   return (
     <View style={styles.container}>
@@ -307,11 +333,12 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
           data={showShimmer && (refreshing || isInitialLoad) ? [] : paginatedNews}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
+          disableVirtualization={false}
           onScroll={(event) => {
             // Save scroll position for state preservation
             scrollPositionRef.current = event.nativeEvent.contentOffset.y;
           }}
-          scrollEventThrottle={16}
+          scrollEventThrottle={32}
           contentContainerStyle={[
             styles.scrollContent,
             {
@@ -340,7 +367,7 @@ export const NewsTab: React.FC<NewsTabProps> = ({ isActive = true, isVisible = t
             ) : null
           }
           // Lazy loading optimizations - hanya render item yang terlihat di layar
-          initialNumToRender={6} // Render hanya 6 item pertama saat initial load (yang terlihat di layar)
+          initialNumToRender={5} // Render hanya 6 item pertama saat initial load (yang terlihat di layar)
           maxToRenderPerBatch={3} // Render maksimal 3 item per batch (lebih sedikit = lebih ringan)
           updateCellsBatchingPeriod={50} // Update setiap 50ms
           windowSize={3} // Render hanya 3x viewport (1.5x di atas, 1.5x di bawah) - lebih agresif
@@ -426,6 +453,10 @@ const styles = StyleSheet.create({
     fontSize: getResponsiveFontSize('medium'),
     fontFamily: FontFamily.monasans.regular,
     textAlign: 'center',
+  },
+  placeholder: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
 });
 

@@ -47,8 +47,8 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({
 
   return (
     <SkeletonPlaceholder
-      backgroundColor={isDark ? colors.surfaceSecondary : '#E1E9EE'}
-      highlightColor={isDark ? colors.surface : '#F2F8FC'}
+      backgroundColor={colors.surfaceSecondary}
+      highlightColor={colors.surface}
       speed={1200}
       direction="right"
     >
@@ -174,21 +174,23 @@ export const NotificationItemSkeleton: React.FC = () => {
   const { colors } = useTheme();
 
   return (
-    <SkeletonPlaceholder
-      backgroundColor={colors.surfaceSecondary}
-      highlightColor={colors.surface}
-      speed={1200}
-      direction="right"
-    >
-      <View style={styles.notificationItemContainer}>
-        <View style={styles.notificationIconSkeleton} />
-        <View style={styles.notificationContentSkeleton}>
-          <View style={styles.notificationTitleSkeleton} />
-          <View style={styles.notificationMessageSkeleton} />
-          <View style={styles.notificationDateSkeleton} />
+    <View style={{ width: '100%' }}>
+      <SkeletonPlaceholder
+        backgroundColor={colors.surfaceSecondary}
+        highlightColor={colors.surface}
+        speed={1200}
+        direction="right"
+      >
+        <View style={styles.notificationItemContainer}>
+          <View style={styles.notificationIconSkeleton} />
+          <View style={styles.notificationContentSkeleton}>
+            <View style={styles.notificationTitleSkeleton} />
+            <View style={styles.notificationMessageSkeleton} />
+            <View style={styles.notificationDateSkeleton} />
+          </View>
         </View>
-      </View>
-    </SkeletonPlaceholder>
+      </SkeletonPlaceholder>
+    </View>
   );
 };
 

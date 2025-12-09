@@ -6,4 +6,21 @@
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     </style>
 
+    <!-- Chucker Theme with edge-to-edge support -->
+    <!-- Using NoActionBar karena Chucker library menggunakan Toolbar sendiri -->
+    <style name="ChuckerTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Enable edge-to-edge -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- Ensure content respects system bars -->
+        <item name="android:fitsSystemWindows">true</item>
+        <!-- No action bar - Chucker uses Toolbar -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+
 </resources>

@@ -9,6 +9,8 @@ export { tokenService } from './services/tokenService';
 export { useAuth } from './hooks/useAuth';
 export { useToken } from './hooks/useToken';
 export { LoginScreen } from './components/LoginScreen';
+export { SignUpScreen } from './components/SignUpScreen';
+export { ForgotPasswordScreen } from './components/ForgotPasswordScreen';
 export { useAuthStore } from './stores/authStore';
 export * from './utils/jwtUtils';
 

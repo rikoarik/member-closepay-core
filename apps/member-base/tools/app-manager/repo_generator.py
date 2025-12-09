@@ -303,10 +303,10 @@ def update_ios_config(ios_dir: Path, app_name: str, display_name: str, tenant_id
     info_plist = ios_dir / app_identifier / 'Info.plist'
     if not info_plist.exists():
         # Try with original name
-        info_plist = ios_dir / 'MerchantClosepayV2' / 'Info.plist'
+        info_plist = ios_dir / 'MemberBaseApp' / 'Info.plist'
         if info_plist.exists():
             # Rename directory
-            old_dir = ios_dir / 'MerchantClosepayV2'
+            old_dir = ios_dir / 'MemberBaseApp'
             new_dir = ios_dir / app_identifier
             old_dir.rename(new_dir)
             info_plist = new_dir / 'Info.plist'
@@ -332,7 +332,7 @@ def update_ios_config(ios_dir: Path, app_name: str, display_name: str, tenant_id
     # 2. Update AppDelegate.swift
     app_delegate = ios_dir / app_identifier / 'AppDelegate.swift'
     if not app_delegate.exists():
-        app_delegate = ios_dir / 'MerchantClosepayV2' / 'AppDelegate.swift'
+        app_delegate = ios_dir / 'MemberBaseApp' / 'AppDelegate.swift'
     
     if app_delegate.exists():
         try:
@@ -401,7 +401,7 @@ def update_ios_config(ios_dir: Path, app_name: str, display_name: str, tenant_id
             
             # Rename .xcodeproj directory if needed
             xcodeproj_dir = pbxproj.parent.parent
-            if xcodeproj_dir.name == 'MerchantClosepayV2.xcodeproj':
+            if xcodeproj_dir.name == 'MerchantClosepayV2.xcodeproj' or xcodeproj_dir.name == 'memberBaseApp.xcodeproj':
                 new_xcodeproj = xcodeproj_dir.parent / f'{app_identifier}.xcodeproj'
                 xcodeproj_dir.rename(new_xcodeproj)
             

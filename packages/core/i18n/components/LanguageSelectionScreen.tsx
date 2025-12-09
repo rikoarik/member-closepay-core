@@ -126,7 +126,7 @@ export const LanguageSelectionScreen: React.FC = () => {
                   ]}
                 >
                   {isSelected && (
-                    <Text style={{ color: '#FFFFFF', fontSize: getResponsiveFontSize('small') }}>
+                    <Text style={{ color: colors.surface, fontSize: getResponsiveFontSize('small') }}>
                       ✓
                     </Text>
                   )}
@@ -176,7 +176,7 @@ export const LanguageSelectionScreen: React.FC = () => {
             style={[
               styles.saveButtonText,
               {
-                color: '#FFFFFF',
+                color: colors.surface,
                 fontSize: getResponsiveFontSize('large'),
               },
             ]}

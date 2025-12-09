@@ -18,9 +18,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft2 } from 'iconsax-react-nativejs';
-import { useTheme } from '../../theme';
-import { useTranslation } from '../../i18n';
-import { useAuth } from '../../auth';
+import { useTheme } from '@core/theme';
+import { useTranslation } from '@core/i18n';
+import { useAuth } from '@core/auth';
 import {
   scale,
   moderateScale,
@@ -31,7 +31,7 @@ import {
   getResponsiveFontSize,
   getIconSize,
   FontFamily,
-} from '../../config';
+} from '@core/config';
 
 export const EditProfileScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -426,7 +426,7 @@ export const EditProfileScreen: React.FC = () => {
             style={[
               styles.saveButtonText,
               {
-                color: '#FFFFFF',
+                color: colors.surface,
                 fontSize: getResponsiveFontSize('large'),
               },
             ]}
@@ -464,7 +464,6 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FontFamily.monasans.bold,
     flex: 1,
-    textAlign: 'center',
   },
   scrollView: {
     flex: 1,

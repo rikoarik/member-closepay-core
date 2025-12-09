@@ -1,4 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.merchantclosepayv2">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.merchantclosepayv2">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -35,5 +37,17 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      
+      <!-- Chucker Activities with edge-to-edge theme -->
+      <activity
+        android:name="com.chuckerteam.chucker.internal.ui.MainActivity"
+        android:theme="@style/ChuckerTheme"
+        android:exported="false"
+        tools:replace="android:theme" />
+      <activity
+        android:name="com.chuckerteam.chucker.internal.ui.TransactionActivity"
+        android:theme="@style/ChuckerTheme"
+        android:exported="false"
+        tools:replace="android:theme" />
     </application>
 </manifest>

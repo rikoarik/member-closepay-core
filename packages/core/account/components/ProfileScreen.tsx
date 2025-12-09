@@ -28,7 +28,7 @@ import {
   getIconSize,
   FontFamily,
   ScreenHeader,
-} from '../../config';
+} from '@core/config';
 import { ArrowLeft2 } from 'iconsax-react-nativejs';
 
 interface MenuItem {
@@ -264,7 +264,7 @@ export const ProfileScreen: React.FC = () => {
                 <Text
                   style={{
                     fontFamily: FontFamily.monasans.medium,
-                    color: '#FFFFFF',
+                    color: colors.surface,
                     fontSize: getResponsiveFontSize('medium'),
                   }}
                 >

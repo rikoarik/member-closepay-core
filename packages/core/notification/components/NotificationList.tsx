@@ -21,17 +21,21 @@ import {
   getResponsiveFontSize,
   FontFamily,
   getIconSize,
+  CustomRefreshControl,
 } from '../../../core/config';
 import { useTheme } from '../../../core/theme';
 import { useTranslation } from '../../../core/i18n';
 import type { ThemeColors } from '../../../core/theme';
-import { NotificationBing } from 'iconsax-react-nativejs';
+import { NotificationBing, TickCircle } from 'iconsax-react-nativejs';
 
 export interface NotificationListProps {
   notifications: Notification[];
   onNotificationPress?: (notification: Notification) => void;
   refreshing?: boolean;
   onRefresh?: () => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (notificationId: string, selected: boolean) => void;
 }
 
 const formatDateTime = (date: Date) => {
@@ -49,38 +53,12 @@ const formatDateTime = (date: Date) => {
 };
 
 const getTypeStyles = (type: Notification['type'], colors: ThemeColors) => {
-  switch (type) {
-    case 'error':
-      return {
-        iconBg: colors.error,
-        iconColor: colors.surface,
-        highlight: colors.errorLight,
-      };
-    case 'success':
-      return {
-        iconBg: colors.success,
-        iconColor: colors.surface,
-        highlight: colors.successLight,
-      };
-    case 'warning':
-      return {
-        iconBg: colors.warning,
-        iconColor: colors.surface,
-        highlight: colors.warningLight,
-      };
-    case 'info':
-      return {
-        iconBg: colors.info,
-        iconColor: colors.surface,
-        highlight: colors.infoLight,
-      };
-    default:
-      return {
-        iconBg: colors.primary,
-        iconColor: colors.surface,
-        highlight: colors.primaryLight,
-      };
-  }
+  // Semua icon menggunakan primary color untuk konsistensi
+  return {
+    iconBg: colors.primary,
+    iconColor: colors.surface,
+    highlight: colors.primaryLight,
+  };
 };
 
 export const NotificationList: React.FC<NotificationListProps> = ({
@@ -88,6 +66,9 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   onNotificationPress,
   refreshing = false,
   onRefresh,
+  selectionMode = false,
+  selectedIds = new Set(),
+  onSelectionChange,
 }) => {
   const { colors } = useTheme();
   const { t } = useTranslation();
@@ -126,6 +107,8 @@ export const NotificationList: React.FC<NotificationListProps> = ({
               ? notification.createdAt
               : new Date(notification.createdAt);
 
+          const isSelected = selectedIds.has(notification.id);
+
           return (
             <TouchableOpacity
               key={notification.id}
@@ -133,27 +116,48 @@ export const NotificationList: React.FC<NotificationListProps> = ({
                 styles.notificationItem,
                 {
                   borderBottomColor: colors.border,
-                  backgroundColor: notification.isRead ? colors.surface : typeStyles.highlight,
+                  backgroundColor: notification.isRead ? colors.surface : colors.primaryLight,
+                  opacity: selectionMode && isSelected ? 0.7 : 1,
                 },
               ]}
               activeOpacity={0.85}
-              onPress={() => onNotificationPress?.(notification)}
+              onPress={() => {
+                if (selectionMode && onSelectionChange) {
+                  onSelectionChange(notification.id, !isSelected);
+                } else {
+                  onNotificationPress?.(notification);
+                }
+              }}
+              onLongPress={() => {
+                if (!selectionMode && onSelectionChange) {
+                  onSelectionChange(notification.id, true);
+                }
+              }}
             >
+              {selectionMode && (
+                <View style={[styles.checkboxContainer, { borderColor: colors.border }]}>
+                  {isSelected && (
+                    <TickCircle size={scale(20)} color={colors.primary} variant="Bold" />
+                  )}
+                </View>
+              )}
+              
               <View style={[styles.iconWrapper, { backgroundColor: typeStyles.iconBg }]}>
                 <NotificationBing
                   size={getIconSize('medium')}
                   color={typeStyles.iconColor}
                   variant="Bold"
                 />
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      borderColor: typeStyles.iconBg,
-                      backgroundColor: colors.success,
-                    },
-                  ]}
-                />
+                {!notification.isRead && (
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor: colors.error,
+                      },
+                    ]}
+                  />
+                )}
               </View>
 
               <View style={styles.textContent}>
@@ -214,8 +218,7 @@ const styles = StyleSheet.create({
     right: -scale(2),
     width: scale(16),
     height: scale(16),
-    borderRadius: scale(8),
-    borderWidth: scale(2),
+    borderRadius: scale(8)
   },
   textContent: {
     flex: 1,
@@ -234,5 +237,14 @@ const styles = StyleSheet.create({
     fontSize: getResponsiveFontSize('small'),
     fontFamily: FontFamily.monasans.regular,
     marginTop: moderateVerticalScale(10),
+  },
+  checkboxContainer: {
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(6),
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(12),
   },
 });

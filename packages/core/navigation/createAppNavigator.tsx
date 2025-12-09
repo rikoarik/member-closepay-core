@@ -7,36 +7,35 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { TenantId } from '../config/tenants';
-import { getTenantConfig } from '../config/services/tenantService';
-import { PluginRegistry, getPluginComponentLoader } from '../config';
-import { ProfileScreen, EditProfileScreen } from '../account';
-import { LanguageSelectionScreen } from '../i18n';
-import { QuickMenuSettingsScreen } from '../config';
-import { ThemeSettingsScreen } from '../theme';
+import { TenantId, getTenantConfig, PluginRegistry, getPluginComponentLoader, QuickMenuSettingsScreen, OnboardingScreen, onboardingService } from '@core/config';
+import { ProfileScreen, EditProfileScreen } from '@core/account';
+import { LanguageSelectionScreen } from '@core/i18n';
+import { ThemeSettingsScreen, useTheme } from '@core/theme';
+import { LoginScreen, SignUpScreen, ForgotPasswordScreen, useAuth } from '@core/auth';
 
 const Stack = createNativeStackNavigator();
 
 /**
  * Loading fallback component
  */
-const LoadingFallback = () => (
-  <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color="#0066CC" />
-    <Text style={styles.loadingText}>Memuat...</Text>
-  </View>
-);
+const LoadingFallback = () => {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Memuat...</Text>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
   },
   loadingText: {
     marginTop: 16,
-    color: '#6B7280',
   },
 });
 
@@ -70,8 +69,11 @@ export function createAppNavigator({
    * Built dynamically from tenant config and plugin manifests
    */
   const AppNavigatorComponent: React.FC = () => {
+    const { isAuthenticated, isLoading: isAuthLoading, initializeAuth } = useAuth();
     const [pluginRoutes, setPluginRoutes] = useState<React.ReactElement[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+    const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false);
 
     // Process app screens
     const validAppScreens = React.useMemo(() => {
@@ -95,6 +97,36 @@ export function createAppNavigator({
       
       return [];
     }, [appScreens]);
+
+    // Initialize auth on mount
+    useEffect(() => {
+      const initAuth = async () => {
+        try {
+          await initializeAuth();
+        } catch (error) {
+          console.error('[createAppNavigator] Error initializing auth:', error);
+        }
+      };
+
+      initAuth();
+    }, [initializeAuth]);
+
+    // Check onboarding status
+    useEffect(() => {
+      const checkOnboarding = async () => {
+        try {
+          const completed = await onboardingService.isOnboardingCompleted();
+          setIsOnboardingCompleted(completed);
+        } catch (error) {
+          console.error('[createAppNavigator] Error checking onboarding:', error);
+          setIsOnboardingCompleted(false);
+        } finally {
+          setIsCheckingOnboarding(false);
+        }
+      };
+
+      checkOnboarding();
+    }, []);
 
     // Load tenant config and plugin routes
     useEffect(() => {
@@ -167,8 +199,35 @@ export function createAppNavigator({
       loadNavigation();
     }, []);
 
-    if (isLoading) {
+    const handleOnboardingComplete = async () => {
+      try {
+        await onboardingService.completeOnboarding();
+        setIsOnboardingCompleted(true);
+      } catch (error) {
+        console.error('[createAppNavigator] Error completing onboarding:', error);
+      }
+    };
+
+    // Show loading while checking onboarding or auth
+    if (isCheckingOnboarding || isLoading || isAuthLoading) {
       return <LoadingFallback />;
+    }
+
+    // Show onboarding if not completed
+    if (!isOnboardingCompleted) {
+      return (
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              animation: 'none',
+            }}>
+            <Stack.Screen name="Onboarding">
+              {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
+      );
     }
 
     return (
@@ -176,30 +235,58 @@ export function createAppNavigator({
         <NavigationContainer>
           <Stack.Navigator
             screenOptions={{
-              headerShown: false,
+              headerShown: false, // Hide default iOS header for all screens
+              headerLeft: () => null, // Remove default back button for all screens
               animation: 'slide_from_right',
             }}
-            initialRouteName="Home"
+            initialRouteName={isAuthenticated ? 'Home' : 'Login'}
           >
-            {/* Home Screen */}
-            <Stack.Screen name="Home" component={HomeScreen} />
+            {!isAuthenticated ? (
+              // Show Login screen if not authenticated
+              <>
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen 
+                  name="SignUp" 
+                  component={SignUpScreen}
+                  options={{
+                    headerShown: false, // Hide default iOS header, use custom header
+                    headerLeft: () => null, // Remove default back button
+                    gestureEnabled: false, // Disable iOS swipe back gesture
+                  }}
+                />
+                <Stack.Screen
+                  name="ForgotPassword"
+                  component={ForgotPasswordScreen}
+                  options={{
+                    headerShown: false,
+                    headerLeft: () => null,
+                    gestureEnabled: true,
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                {/* Home Screen */}
+                <Stack.Screen name="Home" component={HomeScreen} />
 
-            {/* App-specific screens */}
-            {validAppScreens.map((screen, index) =>
-              React.cloneElement(screen, { key: screen.key ?? `app-screen-${index}` })
+                {/* App-specific screens */}
+                {validAppScreens.map((screen, index) =>
+                  React.cloneElement(screen, { key: screen.key ?? `app-screen-${index}` })
+                )}
+
+                {/* Plugin routes */}
+                {pluginRoutes.map((screen, index) =>
+                  React.cloneElement(screen, { key: screen.key ?? `plugin-screen-${index}` })
+                )}
+
+                {/* Core screens */}
+                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
+                <Stack.Screen name="QuickMenuSettings" component={QuickMenuSettingsScreen} />
+                <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen} />
+              </>
             )}
-
-            {/* Plugin routes */}
-            {pluginRoutes.map((screen, index) =>
-              React.cloneElement(screen, { key: screen.key ?? `plugin-screen-${index}` })
-            )}
-
-            {/* Core screens */}
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-            <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
-            <Stack.Screen name="QuickMenuSettings" component={QuickMenuSettingsScreen} />
-            <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </Suspense>

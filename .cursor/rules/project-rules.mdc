@@ -1,0 +1,761 @@
+---
+alwaysApply: true
+---
+
+# Rules untuk Merchant Closepay V2 - React Native
+Berdasarkan Rencana_Pengembangan_RN_Merchant.md
+
+## Arsitektur Layer
+
+### Layer Hierarchy
+1. **CORE** (Foundation) - packages/core/
+   - Generik, reusable, tidak bergantung domain spesifik
+   - Modules: auth, config, account, notification, theme, i18n, security
+   - JANGAN diubah per company
+
+2. **FEATURES** (Generic) - packages/features/
+   - Abstraksi generik untuk fitur yang dipakai banyak segmen
+   - Modules: catalog, order, reporting
+   - JANGAN diubah per company
+
+3. **PLUGINS** (Domain-Specific) - packages/plugins/
+   - Logic dan UI spesifik domain
+   - Bisa di-extend dan customize per company
+   - Core plugins: balance, payment (core functionality yang bisa di-enable/disable)
+   - Domain plugins: invoice, bank-sampah, kso, marketplace-fnb, marketplace-produk, card-transaction, donasi, catalog, order, reporting
+
+4. **APPS** (Company-Specific) - apps/
+   - Company-specific applications
+   - Config, assets, overrides
+
+## Dependency Rules (STRICT)
+
+### ✅ BENAR - Dependency Flow
+```
+Plugins → Features → Core
+```
+
+- Core TIDAK BOLEH depend ke Features/Plugins
+- Features TIDAK BOLEH depend ke Plugins
+- Plugins BOLEH depend ke Core & Features
+
+### ❌ SALAH - Reverse Dependency
+- JANGAN: Core memanggil Plugin
+- JANGAN: Core memanggil Feature
+- JANGAN: Feature memanggil Plugin
+
+### Contoh Implementasi
+
+#### ✅ BENAR: Plugin memanggil Plugin lain
+```typescript
+// plugins/bank-sampah
+const kg = 10;
+const amount = calculateWasteValue(kg); // logic spesifik
+await paymentService.topUpBalance(amount, 'waste-bank'); // payment plugin
+```
+
+#### ✅ BENAR: Plugin memanggil Core
+```typescript
+// plugins/payment
+import { tokenService } from '../../core/auth';
+const token = await tokenService.getToken(); // core generik
+```
+
+#### ❌ SALAH: Core tahu tentang domain spesifik
+```typescript
+// JANGAN di core
+core.topUpWithWaste(kg) // JANGAN! Buat di plugin bank-sampah
+```
+
+#### ✅ BENAR: Plugin hanya tahu operasi generik
+```typescript
+// plugins/payment
+paymentService.topUpBalance(amount, method) // ✅ generik
+```
+
+## Struktur Folder
+
+### Core Module Structure
+```
+packages/core/{module}/
+├── models/          # Data models
+├── services/        # Business logic
+├── hooks/           # React hooks
+├── components/      # UI components (jika ada)
+├── types/           # TypeScript types
+└── index.ts         # Export semua
+```
+
+### Features Module Structure
+```
+packages/features/{module}/
+├── models/          # Generic models
+├── services/        # Generic services
+├── hooks/           # React hooks
+├── components/       # Generic components
+└── index.ts         # Export semua
+```
+
+### Plugin Module Structure
+```
+packages/plugins/{module}/
+├── components/      # UI components
+├── hooks/           # Custom hooks
+├── models/          # Data models (jika ada)
+├── services/        # Business logic (jika ada)
+├── types/           # TypeScript types (jika ada)
+├── plugin.manifest.json  # Plugin manifest
+└── index.ts         # Module definition
+```
+
+**Catatan**: Struktur plugin saat ini menggunakan `packages/plugins/{module}/` tanpa segment grouping. Core plugins seperti balance dan payment tetap mengikuti struktur ini.
+
+## Prinsip Desain
+
+### 1. Core tidak tahu tentang domain spesifik
+- Core hanya tahu operasi generik (auth, config, account management)
+- Balance dan Payment adalah core plugins, bukan core modules
+- JANGAN buat method spesifik domain di Core (misal: topUpWithWaste)
+
+### 2. Features Base adalah abstraksi generik
+- Product model bisa dipakai: produk fisik, menu FnB, paket umroh, tiket
+- JANGAN buat model spesifik domain di Features (misal: FnbMenu)
+
+### 3. Plugin memanggil Core & Plugin lain, bukan sebaliknya
+- Plugin implement logic spesifik, lalu panggil Core untuk operasi generik
+- Plugin bisa memanggil plugin lain (contoh: payment plugin memanggil balance plugin)
+- Core TIDAK BOLEH memanggil Plugin
+
+### 4. Single Responsibility
+- Balance = ledger only (immutable)
+- Payment = gateway only (single entry point untuk semua operasi uang)
+- Setiap module punya satu tanggung jawab
+
+### 5. Open/Closed Principle
+- Core & Features: closed for modification, open for extension
+- Plugins: extend functionality tanpa modify core
+
+## Balance & Payment Rules
+
+**Lokasi**: Balance dan Payment adalah **core plugins** di `packages/plugins/balance/` dan `packages/plugins/payment/`
+
+### Balance Plugin (Ledger)
+- 🔒 **Immutable**: Mutasi tidak bisa diubah/dihapus
+- 📊 **Single source of truth**: Saldo diperoleh dari penjumlahan mutasi
+- 🔄 **Audit trail**: Setiap perubahan tercatat
+- ❌ **No direct access**: Tidak ada operasi uang langsung ke balance service
+- 📦 **Core Plugin**: Bisa di-enable/disable per segment via AppConfig
+
+### Payment Plugin (Gateway)
+- 🚪 **Single entry point**: Semua operasi uang melalui payment service
+- 🔄 **Auto update ledger**: Semua operasi update balance/ledger via balance plugin
+- 🚫 **No direct access**: Tidak ada operasi uang langsung ke balance service
+- 🔑 **Idempotency**: Support idempotency key
+- 📦 **Core Plugin**: Bisa di-enable/disable per segment via AppConfig
+- 🔗 **Dependency**: Payment plugin depends on balance plugin
+
+### Flow Transaksi Universal
+```
+User Action → Plugin → plugins/payment → plugins/balance → Backend API
+```
+
+**Catatan**: 
+- Balance dan Payment adalah core plugins di `packages/plugins/balance/` dan `packages/plugins/payment/`
+- Payment plugin memanggil balance plugin untuk operasi ledger
+- Jika menggunakan features/order, flow menjadi: `User Action → Plugin → features/order → plugins/payment → plugins/balance → Backend API`
+
+## TypeScript Rules
+
+### ✅ DO
+- Gunakan TypeScript untuk type safety
+- Define interfaces untuk semua contracts
+- Export types dari index.ts
+- Gunakan strict typing
+
+### ❌ DON'T
+- Avoid `any` type
+- Jangan skip type definitions
+- Jangan mix JavaScript dan TypeScript tanpa alasan
+
+## Code Organization
+
+### ✅ DO
+- Consistent folder structure
+- Clear naming conventions
+- Export semua dari index.ts
+- Document interfaces dan dependencies
+
+### ❌ DON'T
+- Avoid circular dependencies
+- Jangan duplicate code
+- Jangan mix concerns (UI logic di service, dll)
+
+## Error Handling
+
+### ✅ DO
+- Consistent error format
+- User-friendly error messages
+- Proper error logging
+- Handle errors di service layer
+
+## Testing
+
+- Unit test untuk core modules
+- Integration test untuk features
+- E2E test untuk plugins
+
+## Configuration-Driven
+
+- Fitur aktif ditentukan AppConfig
+- Feature flags untuk enable/disable features
+- Menu configuration dari AppConfig
+- Company-specific config di apps/{companyId}/config/
+
+## Naming Conventions
+
+- Modules: kebab-case (balance-management)
+- Files: PascalCase untuk components, camelCase untuk utilities
+- Types/Interfaces: PascalCase
+- Services: camelCase dengan suffix Service (authService)
+- Hooks: camelCase dengan prefix use (useAuth)
+
+## Import Rules
+
+- Import dari index.ts, bukan langsung dari file
+- Gunakan relative path untuk imports
+- Core modules: `from '../../packages/core/{module}'`
+- Features: `from '../../packages/features/{module}'`
+- Plugins: `from '../../packages/plugins/{module}'`
+
+**Catatan**: Struktur plugin saat ini menggunakan `packages/plugins/{module}/` tanpa segment grouping.
+
+## File Structure Rules
+
+### Setiap Module HARUS punya:
+- index.ts yang export semua public API
+- Types/interfaces untuk contracts
+- Services untuk business logic (jika ada)
+- Models untuk data structures (jika ada)
+
+### Optional tapi Recommended:
+- Hooks untuk React integration
+- Components untuk UI (jika reusable)
+
+## Development Workflow
+
+1. **Build Base First**: Core → Features → Plugins → Apps
+2. **Test Each Layer**: Pastikan setiap layer bekerja sebelum lanjut
+3. **Follow Dependency Rules**: Jangan break dependency flow
+4. **Configuration-Driven**: Gunakan AppConfig untuk customization
+
+## Company-Specific Customization
+
+- Core & Features: JANGAN diubah per company
+- Plugins: Bisa di-extend dan customize
+- Apps: Company-specific config, assets, overrides
+- Customization via AppConfig, bukan modify base code
+
+---
+
+## Accent Color System Rules (STRICT)
+
+### Prinsip Dasar
+- **Sistem seperti Windows Accent Color**: Hanya perlu ubah 1 accent color di config, semua warna interaktif otomatis berubah
+- **Single Source of Truth**: Accent color didefinisikan di `apps/{companyId}/config/app.config.ts` → `branding.primaryColor`
+- **Auto-Generated Colors**: Semua warna interaktif (primary, info, success, warning, error) di-generate dari accent color dengan hue shift
+
+### ✅ DO - Warna yang HARUS Menggunakan Theme Colors
+
+#### 1. Active/Selected States
+- **Background active**: `colors.primary` (accent color)
+- **Text active**: `colors.surface` (untuk kontras dengan primary background)
+- **Border active**: `colors.primary`
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Active state menggunakan primary
+<TouchableOpacity
+  style={[
+    styles.pill,
+    {
+      backgroundColor: isActive ? colors.primary : colors.surface,
+      borderColor: isActive ? colors.primary : colors.border,
+    },
+  ]}
+>
+  <Text
+    style={{
+      color: isActive ? colors.surface : colors.text,
+    }}
+  >
+    {label}
+  </Text>
+</TouchableOpacity>
+```
+
+#### 2. Primary Action Buttons
+- **Background**: `colors.primary`
+- **Text**: `colors.surface`
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Button menggunakan primary
+<TouchableOpacity
+  style={[styles.button, { backgroundColor: colors.primary }]}
+>
+  <Text style={[styles.buttonText, { color: colors.surface }]}>
+    Simpan
+  </Text>
+</TouchableOpacity>
+```
+
+#### 3. Indicators & Highlights
+- **Tab indicator**: `colors.primary`
+- **Slider indicator**: `colors.primary`
+- **Progress bar**: `colors.primary`
+- **Selected checkbox**: `colors.primary`
+- **Radio button selected**: `colors.primary`
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Indicator menggunakan primary
+<Animated.View
+  style={[
+    styles.indicator,
+    { backgroundColor: colors.primary },
+  ]}
+/>
+```
+
+#### 4. Pill Buttons & Chips
+- **Active pill background**: `colors.primary`
+- **Active pill text**: `colors.surface`
+- **Chip background**: `colors.primaryLight` (untuk non-active)
+- **Chip text**: `colors.primary` (untuk non-active)
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Pill button menggunakan primary
+<TouchableOpacity
+  style={[
+    styles.pill,
+    {
+      backgroundColor: isActive ? colors.primary : colors.surface,
+    },
+  ]}
+>
+  <Text
+    style={{
+      color: isActive ? colors.surface : colors.text,
+    }}
+  >
+    {label}
+  </Text>
+</TouchableOpacity>
+```
+
+#### 5. Icon Colors (Interactive)
+- **Icon di button active**: `colors.primary` atau `colors.surface` (tergantung background)
+- **Icon di quick access**: `colors.primary` (mengikuti accent color)
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Icon menggunakan primary
+<ArrowDown2 size={20} color={colors.primary} variant="Bold" />
+```
+
+### ❌ DON'T - JANGAN Hardcode Colors
+
+#### 1. JANGAN Hardcode Hex Colors untuk Active/Selected States
+```typescript
+// ❌ SALAH: Hardcoded color
+const selectedTextColor = '#FFFFFF';
+backgroundColor: isActive ? '#0066CC' : colors.surface;
+
+// ✅ BENAR: Menggunakan theme colors
+const selectedTextColor = colors.surface;
+backgroundColor: isActive ? colors.primary : colors.surface;
+```
+
+#### 2. JANGAN Hardcode Colors di StyleSheet.create
+```typescript
+// ❌ SALAH: Hardcoded di StyleSheet
+const styles = StyleSheet.create({
+  button: {
+    backgroundColor: '#0066CC', // JANGAN!
+  },
+  buttonText: {
+    color: '#FFFFFF', // JANGAN!
+  },
+});
+
+// ✅ BENAR: Set inline dengan theme colors
+const styles = StyleSheet.create({
+  button: {
+    // backgroundColor akan di-set inline
+  },
+  buttonText: {
+    // color akan di-set inline
+  },
+});
+
+// Di component:
+<TouchableOpacity
+  style={[styles.button, { backgroundColor: colors.primary }]}
+>
+  <Text style={[styles.buttonText, { color: colors.surface }]}>
+    Simpan
+  </Text>
+</TouchableOpacity>
+```
+
+#### 3. JANGAN Pre-create Icon Instances dengan Hardcoded Colors
+```typescript
+// ❌ SALAH: Pre-created dengan hardcoded color
+const ICON_INSTANCES = {
+  payIPL: <ArrowDown2 size={20} color="#3B82F6" variant="Bold" />,
+};
+
+// ✅ BENAR: Function yang menerima color parameter
+const getMenuIcon = (iconName: string, iconColor: string) => {
+  switch (iconName) {
+    case 'payIPL':
+      return <ArrowDown2 size={20} color={iconColor} variant="Bold" />;
+  }
+};
+
+// Di component:
+icon: getMenuIcon(item.icon, colors.primary),
+```
+
+#### 4. JANGAN Hardcode Background Colors untuk Status
+```typescript
+// ❌ SALAH: Hardcoded background colors
+const getBgColor = (type: string) => {
+  switch (type) {
+    case 'info': return '#DBEAFE';
+    case 'success': return '#D1FAE5';
+  }
+};
+
+// ✅ BENAR: Menggunakan theme colors
+const getBgColor = (type: string, colors: ThemeColors) => {
+  switch (type) {
+    case 'info': return colors.infoLight;
+    case 'success': return colors.successLight;
+  }
+};
+```
+
+### Rules untuk Text Colors
+
+#### Active/Selected Text
+- **Text di atas primary background**: `colors.surface` (putih/terang)
+- **Text di atas surface background**: `colors.text` (gelap/terang sesuai theme)
+
+#### Inactive/Unselected Text
+- **Text di atas surface background**: `colors.text`
+- **Text secondary**: `colors.textSecondary`
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Text color berdasarkan state
+<Text
+  style={{
+    color: isActive
+      ? colors.surface  // Putih untuk kontras dengan primary
+      : colors.text,    // Normal text color
+  }}
+>
+  {label}
+</Text>
+```
+
+### Exception Rules
+
+#### 1. Error States
+- **Error button**: `colors.error` (bukan primary)
+- **Error text**: `colors.error`
+- **Error background**: `colors.errorLight`
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Error button menggunakan error color
+<TouchableOpacity
+  style={[styles.button, { backgroundColor: colors.error }]}
+>
+  <Text style={[styles.buttonText, { color: colors.surface }]}>
+    Hapus
+  </Text>
+</TouchableOpacity>
+```
+
+#### 2. Secondary Actions
+- **Cancel button**: Bisa menggunakan `colors.surface` dengan border
+- **Preview button**: Bisa menggunakan `colors.surface` dengan border
+- **Text color**: `colors.primary` untuk secondary button text
+
+**Contoh:**
+```typescript
+// ✅ BENAR: Secondary button
+<TouchableOpacity
+  style={[
+    styles.button,
+    {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+  ]}
+>
+  <Text style={[styles.buttonText, { color: colors.primary }]}>
+    Batal
+  </Text>
+</TouchableOpacity>
+```
+
+### Checklist Sebelum Commit
+
+Sebelum commit code yang menggunakan colors, pastikan:
+
+- [ ] Tidak ada hardcoded hex colors (`#FFFFFF`, `#0066CC`, dll) untuk active/selected states
+- [ ] Semua active states menggunakan `colors.primary`
+- [ ] Semua button primary menggunakan `colors.primary`
+- [ ] Semua indicator menggunakan `colors.primary`
+- [ ] Semua pill/chip active menggunakan `colors.primary`
+- [ ] Text di atas primary background menggunakan `colors.surface`
+- [ ] Tidak ada pre-created icon instances dengan hardcoded colors
+- [ ] Background colors menggunakan theme colors (infoLight, successLight, dll)
+- [ ] StyleSheet.create tidak mengandung hardcoded colors untuk interactive elements
+
+### Testing Accent Color
+
+Setelah implementasi, test dengan mengubah accent color di config:
+```typescript
+// apps/member-base/config/app.config.ts
+branding: {
+  primaryColor: '#EF4444', // Ubah ke merah
+}
+```
+
+**Expected Result:**
+- ✅ Semua button primary menjadi merah
+- ✅ Semua indicator menjadi merah
+- ✅ Semua active/selected states menjadi merah
+- ✅ Semua pill buttons active menjadi merah
+- ✅ Semua icon interactive menjadi merah
+
+---
+
+## Struktur Aktual Saat Ini
+
+### Core Modules (Foundation) - `packages/core/`
+
+**Modules yang ada:**
+- ✅ `auth/` - Authentication, token management
+- ✅ `config/` - AppConfig, feature flags, plugin system
+- ✅ `account/` - Company, outlet, user management
+- ✅ `notification/` - Notification service dan components
+- ✅ `theme/` - Theming system
+- ✅ `i18n/` - Internationalization
+- ✅ `security/` - Security features
+
+**Struktur per module:**
+```
+packages/core/{module}/
+├── models/          # Data models (jika ada)
+├── services/        # Business logic
+├── hooks/           # React hooks
+├── components/      # UI components (jika ada)
+├── types/           # TypeScript types (jika ada)
+├── context/         # React context (jika ada)
+└── index.ts         # Export semua
+```
+
+### Features Layer - `packages/features/`
+
+**Status**: ❌ **FOLDER BELUM ADA**
+
+**Catatan**: Saat ini catalog, order, dan reporting masih di plugins sebagai domain plugins.
+
+### Plugins (Domain-Specific) - `packages/plugins/`
+
+**Struktur**: `packages/plugins/{module}/` (tanpa segment grouping)
+
+#### Core Plugins (Core Functionality)
+- ✅ `balance/` - Balance ledger (immutable)
+  - Components: TransactionHistoryScreen, TopUpIcon, WithdrawIcon
+  - Services: balanceService, mutationService
+  - Models: BalanceAccount, BalanceMutation, TransactionType
+  - Hook: useBalance
+  
+- ✅ `payment/` - Payment gateway (single entry point)
+  - Components: TopUpScreen, WithdrawScreen, VirtualAccountScreen, dll
+  - Services: paymentService, topUpService, withdrawService, transferService, cardTransactionService
+  - Dependency: depends on balance plugin
+
+#### Domain Plugins
+- ✅ `catalog/` - Product catalog management
+  - Components: CategoryList, ProductCard
+  - Models: Category, Product, Variant
+  - Hooks: useCategories, useProducts
+  
+- ✅ `order/` - Order processing
+  - Components: CartView, OrderList
+  - Models: Cart, Order, OrderItem, Invoice, Installment
+  - Services: cartService, orderService, invoiceService
+  
+- ✅ `reporting/` - Analytics & reports
+  - Components: Dashboard, TransactionReport
+  - Models: Dashboard, TransactionReport
+  - Services: reportingService
+  - Hook: useReports
+
+- ✅ `invoice/` - Invoicing system (placeholder)
+- ✅ `bank-sampah/` - Waste bank (placeholder)
+- ✅ `kso/` - Operational cooperation (placeholder)
+- ✅ `card-transaction/` - Card payment processing (placeholder)
+- ✅ `donasi/` - Donations (placeholder)
+- ✅ `marketplace-fnb/` - F&B marketplace (placeholder)
+- ✅ `marketplace-produk/` - Product marketplace (placeholder)
+
+**Total**: 12 plugins (2 core plugins + 10 domain plugins)
+
+### Apps (Company-Specific) - `apps/`
+
+**Struktur:**
+```
+apps/
+└── merchant-base/
+    ├── config/
+    │   └── app.config.template.ts
+    ├── index.tsx
+    └── README.md
+```
+
+---
+
+## Mapping Module ke Lokasi Aktual
+
+### Core Modules
+| Module | Lokasi | Status |
+|--------|--------|--------|
+| auth | `packages/core/auth/` | ✅ Sesuai |
+| config | `packages/core/config/` | ✅ Sesuai |
+| account | `packages/core/account/` | ✅ Sesuai |
+| notification | `packages/core/notification/` | ✅ Aktual (idealnya di features) |
+| theme | `packages/core/theme/` | ✅ Sesuai |
+| i18n | `packages/core/i18n/` | ✅ Sesuai |
+| security | `packages/core/security/` | ✅ Sesuai |
+
+### Features Modules
+| Module | Lokasi Saat Ini | Status |
+|--------|-----------------|--------|
+| catalog | `packages/plugins/catalog/` | ⚠️ Masih di plugins |
+| order | `packages/plugins/order/` | ⚠️ Masih di plugins |
+| reporting | `packages/plugins/reporting/` | ⚠️ Masih di plugins |
+
+### Core Plugins
+| Plugin | Lokasi | Status |
+|--------|--------|--------|
+| balance | `packages/plugins/balance/` | ✅ Sesuai |
+| payment | `packages/plugins/payment/` | ✅ Sesuai |
+
+### Domain Plugins
+| Plugin | Lokasi | Status |
+|--------|--------|--------|
+| invoice | `packages/plugins/invoice/` | ✅ Sesuai |
+| bank-sampah | `packages/plugins/bank-sampah/` | ✅ Sesuai |
+| kso | `packages/plugins/kso/` | ✅ Sesuai |
+| card-transaction | `packages/plugins/card-transaction/` | ✅ Sesuai |
+| donasi | `packages/plugins/donasi/` | ✅ Sesuai |
+| marketplace-fnb | `packages/plugins/marketplace-fnb/` | ✅ Sesuai |
+| marketplace-produk | `packages/plugins/marketplace-produk/` | ✅ Sesuai |
+| catalog | `packages/plugins/catalog/` | ⚠️ Masih di plugins |
+| order | `packages/plugins/order/` | ⚠️ Masih di plugins |
+| reporting | `packages/plugins/reporting/` | ⚠️ Masih di plugins |
+
+---
+
+## Dependency Flow Aktual
+
+### Import Patterns yang Benar
+
+#### ✅ Plugin → Core
+```typescript
+// packages/plugins/balance/components/TransactionHistoryScreen.tsx
+import { useTheme } from '../../../core/theme';
+import { useTranslation } from '../../../core/i18n';
+import { scale, moderateVerticalScale } from '../../../core/config';
+```
+
+#### ✅ Plugin → Plugin
+```typescript
+// packages/plugins/payment/services/paymentService.ts
+import { mutationService } from '../../balance/services/mutationService';
+import { TransactionType } from '../../balance/models/TransactionType';
+```
+
+#### ✅ App → Core
+```typescript
+// src/navigation/AuthNavigator.tsx
+import { LoginScreen } from '../../packages/core/auth';
+import { OnboardingScreen } from '../../packages/core/config';
+```
+
+#### ✅ App → Plugin
+```typescript
+// src/navigation/AuthNavigator.tsx
+import { TransactionHistoryScreen } from '../../packages/plugins/balance';
+import { TopUpScreen } from '../../packages/plugins/payment';
+```
+
+---
+
+## Plugin Registry
+
+**Plugin yang terdaftar di `packages/core/config/plugins/pluginLoader.ts`:**
+1. balance
+2. payment
+3. bank-sampah
+4. card-transaction
+5. donasi
+6. invoice
+7. kso
+8. marketplace-fnb
+9. marketplace-produk
+10. catalog
+11. order
+12. reporting
+
+**Total**: 12 plugins terdaftar
+
+---
+
+## Catatan Implementasi Aktual
+
+### Status Struktur
+- **Core**: 7 modules (auth, config, account, notification, theme, i18n, security)
+- **Features**: 0 modules (folder belum ada)
+- **Plugins**: 12 modules (2 core plugins + 10 domain plugins)
+
+### Ketidaksesuaian dengan Rules Ideal
+1. **Features Layer belum ada**: Folder `packages/features/` tidak ada
+   - Dampak: Catalog, order, reporting masih di plugins
+   - Status: Diterima sebagai implementasi aktual
+
+2. **Notification di Core**: `packages/core/notification/` ada
+   - Idealnya: `packages/features/notification/`
+   - Status: Diterima sebagai implementasi aktual
+
+3. **Catalog, Order, Reporting di Plugins**: Masih di `packages/plugins/`
+   - Idealnya: `packages/features/`
+   - Status: Diterima sebagai implementasi aktual
+
+### Yang Sudah Sesuai
+1. ✅ Balance dan Payment di plugins (core plugins)
+2. ✅ Payment plugin depends on balance plugin
+3. ✅ Plugin structure: `packages/plugins/{module}/` tanpa segment grouping
+4. ✅ Core modules: auth, config, account, theme, i18n, security
+5. ✅ Dependency flow: Plugins → Core (terpenuhi)
+6. ✅ Import patterns mengikuti dependency rules

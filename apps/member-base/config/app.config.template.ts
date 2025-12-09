@@ -59,9 +59,7 @@ export const appConfig: AppConfig = {
   
   // Branding
   branding: {
-    primaryColor: '#0066CC',
-    primaryDark: '#0052A3',
-    primaryLight: '#E6F2FF',
+    primaryColor: '#0066CC', // Accent color - Theme Service akan auto-generate primaryLight & primaryDark
     logo: '',
     appName: 'Merchant Closepay',
   },

@@ -59,11 +59,15 @@ export const appConfig: AppConfig = {
   
   // Branding
   branding: {
-    primaryColor: '#0066CC',
-    primaryDark: '#0052A3',
-    primaryLight: '#E6F2FF',
-    logo: '',
+    logo: '', // Set logo URL here (e.g., 'https://example.com/logo.png')
     appName: 'Member Base App',
+  },
+  
+  // Login configuration
+  login: {
+    showSignUp: true, // Show/hide sign up link
+    showSocialLogin: true, // Show/hide social login buttons
+    socialLoginProviders: ['google'], // Available social login providers (only Google, no Facebook)
   },
   
   // Service configuration

@@ -26,7 +26,6 @@ export function getTenantConfig(tenantId: TenantId): TenantConfig | null {
       role: 'merchant', // Default role, can be extended
       enabledFeatures: config.enabledModules || config.enabledFeatures || [],
       theme: {
-        primaryColor: config.branding?.primaryColor,
         logo: config.branding?.logo,
         appName: config.branding?.appName,
       },

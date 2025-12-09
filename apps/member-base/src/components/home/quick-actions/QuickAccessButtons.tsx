@@ -26,7 +26,7 @@ import {
   QuickAccessButtonSkeleton,
   QuickMenuItem,
 } from '@core/config';
-import { useTheme } from '@core/theme';
+import { useTheme, type ThemeColors } from '@core/theme';
 import { useTranslation } from '@core/i18n';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
@@ -52,57 +52,60 @@ interface QuickAccessButtonsProps {
   tabletPortraitGap?: number;
 }
 
-// Pre-calculate icon size once
-const ICON_SIZE = getIconSize('large');
-
-// Pre-create all icon instances to avoid re-creating on every render
-const ICON_INSTANCES = {
-  payIPL: <ArrowDown2 size={ICON_SIZE} color="#3B82F6" variant="Bold" />,
-  emergency: <Call size={ICON_SIZE} color="#F59E0B" variant="Bold" />,
-  guest: <People size={ICON_SIZE} color="#10B981" variant="Bold" />,
-  ppob: <Game size={ICON_SIZE} color="#8B5CF6" variant="Bold" />,
-  transfer: <ArrowDown2 size={ICON_SIZE} color="#EF4444" variant="Bold" />,
-  payment: <Game size={ICON_SIZE} color="#6366F1" variant="Bold" />,
-  bill: <Game size={ICON_SIZE} color="#EC4899" variant="Bold" />,
-  topup: <ArrowUp2 size={ICON_SIZE} color="#22C55E" variant="Bold" />,
-  donation: <People size={ICON_SIZE} color="#F59E0B" variant="Bold" />,
-  marketplace: <Shop size={ICON_SIZE} color="#06B6D4" variant="Bold" />,
-  default: <Game size={ICON_SIZE} color="#8B5CF6" variant="Bold" />,
-} as const;
-
-// Icon mapping untuk setiap menu - returns pre-created icon
-const getMenuIcon = (iconName?: string): React.ReactNode => {
-  if (!iconName || !(iconName in ICON_INSTANCES)) {
-    return ICON_INSTANCES.default;
+// Icon mapping untuk setiap menu - returns icon dengan dynamic color
+const getMenuIcon = (iconName?: string, iconColor: string): React.ReactNode => {
+  const size = getIconSize('large');
+  switch (iconName) {
+    case 'payIPL':
+      return <ArrowDown2 size={size} color={iconColor} variant="Bold" />;
+    case 'emergency':
+      return <Call size={size} color={iconColor} variant="Bold" />;
+    case 'guest':
+      return <People size={size} color={iconColor} variant="Bold" />;
+    case 'ppob':
+      return <Game size={size} color={iconColor} variant="Bold" />;
+    case 'transfer':
+      return <ArrowDown2 size={size} color={iconColor} variant="Bold" />;
+    case 'payment':
+      return <Game size={size} color={iconColor} variant="Bold" />;
+    case 'bill':
+      return <Game size={size} color={iconColor} variant="Bold" />;
+    case 'topup':
+      return <ArrowUp2 size={size} color={iconColor} variant="Bold" />;
+    case 'donation':
+      return <People size={size} color={iconColor} variant="Bold" />;
+    case 'marketplace':
+      return <Shop size={size} color={iconColor} variant="Bold" />;
+    default:
+      return <Game size={size} color={iconColor} variant="Bold" />;
   }
-  return ICON_INSTANCES[iconName as keyof typeof ICON_INSTANCES];
 };
 
 // Default background colors untuk setiap menu
-const getDefaultBgColor = (iconName?: string): string => {
+const getDefaultBgColor = (iconName?: string, colors: ThemeColors): string => {
   switch (iconName) {
     case 'payIPL':
-      return '#DBEAFE';
+      return colors.infoLight;
     case 'emergency':
-      return '#FEF3C7';
+      return colors.warningLight;
     case 'guest':
-      return '#D1FAE5';
+      return colors.successLight;
     case 'ppob':
-      return '#E9D5FF';
+      return colors.primaryLight;
     case 'transfer':
-      return '#FEE2E2';
+      return colors.errorLight;
     case 'payment':
-      return '#E0E7FF';
+      return colors.infoLight;
     case 'bill':
-      return '#FCE7F3';
+      return colors.primaryLight;
     case 'topup':
-      return '#DCFCE7';
+      return colors.successLight;
     case 'donation':
-      return '#FEF3C7';
+      return colors.warningLight;
     case 'marketplace':
-      return '#E0F2FE';
+      return colors.infoLight;
     default:
-      return '#E5E7EB';
+      return colors.surfaceSecondary || colors.surface;
   }
 };
 
@@ -267,8 +270,8 @@ export const QuickAccessButtons: React.FC<QuickAccessButtonsProps> = React.memo(
     const buttons: QuickAccessButton[] = items.map((item) => ({
       id: item.id,
       label: getMenuLabel(item.id, item.label),
-      icon: getMenuIcon(item.icon as string),
-      iconBgColor: item.iconBgColor || getDefaultBgColor(item.icon as string),
+      icon: getMenuIcon(item.icon as string, colors.primary),
+      iconBgColor: item.iconBgColor || getDefaultBgColor(item.icon as string, colors),
       onPress: (item as unknown as QuickMenuItem).route
         ? () => {
             // @ts-ignore - navigation type akan di-setup nanti
@@ -287,7 +290,7 @@ export const QuickAccessButtons: React.FC<QuickAccessButtonsProps> = React.memo(
     
     previousMenuButtonsRef.current = buttons;
     return buttons;
-  }, [stableEnabledItems, getMenuLabel, isLoading, navigation]);
+  }, [stableEnabledItems, getMenuLabel, isLoading, navigation, colors.primary, colors]);
 
   const buttonsToRender = buttons || menuButtons;
   const buttonCount = buttonsToRender.length;

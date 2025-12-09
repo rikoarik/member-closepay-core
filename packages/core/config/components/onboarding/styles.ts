@@ -156,7 +156,6 @@ export const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: getResponsiveFontSize('medium'),
     fontFamily: FontFamily.monasans.semiBold,
-    color: '#FFFFFF',
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -179,7 +178,6 @@ export const styles = StyleSheet.create({
   activateButtonText: {
     fontSize: getResponsiveFontSize('medium'),
     fontFamily: FontFamily.monasans.semiBold,
-    color: '#FFFFFF',
   },
 });
 

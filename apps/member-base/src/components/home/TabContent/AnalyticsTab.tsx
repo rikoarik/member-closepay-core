@@ -22,10 +22,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
   isActive = true,
   isVisible = true,
 }) => {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const horizontalPadding = getHorizontalPadding();
+
+  // Chart colors derived from theme
+  const chartPrimaryColor = colors.info || colors.primary;
+  const chartSecondaryColor = colors.border;
+  const chartWarningColor = colors.warning;
+  const iconBgColor = colors.warningLight;
+  const iconColor = colors.warning;
 
   return (
     <ScrollView
@@ -50,8 +57,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
       {/* Header Section */}
       <View style={styles.headerSection}>
         <View style={styles.titleContainer}>
-          <View style={[styles.iconContainer, { backgroundColor: '#FFF4E5' }]}>
-            <Chart size={scale(20)} color="#F97316" variant="Bold" />
+          <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
+            <Chart size={scale(20)} color={iconColor} variant="Bold" />
           </View>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {t('analytics.summary')}
@@ -90,13 +97,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
       <View style={[styles.chartContainer, { backgroundColor: colors.surface }]}>
         <View style={styles.chartHeader}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#06B6D4' }]} />
+            <View style={[styles.legendDot, { backgroundColor: chartPrimaryColor }]} />
             <Text style={[styles.legendText, { color: colors.textSecondary }]}>
               {t('analytics.revenue')}
             </Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#E2E8F0' }]} />
+            <View style={[styles.legendDot, { backgroundColor: chartSecondaryColor }]} />
             <Text style={[styles.legendText, { color: colors.textSecondary }]}>
               {t('analytics.transactions')}
             </Text>
@@ -108,8 +115,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
           <Svg height={scale(200)} width="100%" style={styles.svg}>
             <Defs>
               <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#06B6D4" stopOpacity="0.2" />
-                <Stop offset="1" stopColor="#06B6D4" stopOpacity="0" />
+                <Stop offset="0" stopColor={chartPrimaryColor} stopOpacity="0.2" />
+                <Stop offset="1" stopColor={chartPrimaryColor} stopOpacity="0" />
               </LinearGradient>
             </Defs>
 
@@ -121,7 +128,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
                 y1={scale(40 * i)}
                 x2="100%"
                 y2={scale(40 * i)}
-                stroke="#E2E8F0"
+                stroke={chartSecondaryColor}
                 strokeDasharray="4 4"
                 strokeWidth="1"
               />
@@ -131,7 +138,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
             <Path
               d={`M0 ${scale(150)} C${scale(50)} ${scale(100)}, ${scale(100)} ${scale(100)}, ${scale(150)} ${scale(50)} S${scale(250)} ${scale(150)}, ${scale(300)} ${scale(150)}`}
               fill="none"
-              stroke="#06B6D4"
+              stroke={chartPrimaryColor}
               strokeWidth="3"
             />
             {/* Revenue Area */}
@@ -144,31 +151,31 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = React.memo(({
             <Path
               d={`M0 ${scale(180)} C${scale(50)} ${scale(180)}, ${scale(100)} ${scale(150)}, ${scale(150)} ${scale(180)} S${scale(250)} ${scale(120)}, ${scale(300)} ${scale(140)}`}
               fill="none"
-              stroke="#CBD5E1"
+              stroke={chartSecondaryColor}
               strokeWidth="3"
             />
 
             {/* Tooltip Point */}
-            <Circle cx={scale(150)} cy={scale(50)} r={scale(6)} fill="#FFFFFF" stroke="#F97316" strokeWidth={2} />
+            <Circle cx={scale(150)} cy={scale(50)} r={scale(6)} fill={colors.surface} stroke={chartWarningColor} strokeWidth={2} />
           </Svg>
 
           {/* Tooltip Label */}
-          <View style={[styles.tooltip, { left: scale(110), top: scale(10) }]}>
-            <Text style={styles.tooltipLabel}>Rp</Text>
-            <Text style={styles.tooltipValue}>700.000</Text>
+          <View style={[styles.tooltip, { left: scale(110), top: scale(10), backgroundColor: colors.surface }]}>
+            <Text style={[styles.tooltipLabel, { color: colors.textSecondary }]}>Rp</Text>
+            <Text style={[styles.tooltipValue, { color: colors.text }]}>700.000</Text>
           </View>
 
           {/* Y Axis Labels */}
           <View style={styles.yAxis}>
             {['1000k+', '500 K', '150 k', '100 K', '50 K', '10 K'].map((label, i) => (
-              <Text key={i} style={styles.axisLabel}>{label}</Text>
+              <Text key={i} style={[styles.axisLabel, { color: colors.textSecondary }]}>{label}</Text>
             ))}
           </View>
 
           {/* X Axis Labels */}
           <View style={styles.xAxis}>
             {['1/08', '2/08', '3/08', '4/08', '5/08', '6/08', '7/08'].map((label, i) => (
-              <Text key={i} style={styles.axisLabel}>{label}</Text>
+              <Text key={i} style={[styles.axisLabel, { color: colors.textSecondary }]}>{label}</Text>
             ))}
           </View>
         </View>
@@ -268,7 +275,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     borderStyle: 'dashed',
     borderRadius: scale(8),
   },
@@ -298,11 +304,9 @@ const styles = StyleSheet.create({
   axisLabel: {
     fontSize: getResponsiveFontSize('small'),
     fontFamily: FontFamily.monasans.regular,
-    color: '#94A3B8',
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: 'white',
     padding: scale(8),
     borderRadius: scale(8),
     shadowColor: '#000',
@@ -314,11 +318,9 @@ const styles = StyleSheet.create({
   tooltipLabel: {
     fontSize: getResponsiveFontSize('small'),
     fontFamily: FontFamily.monasans.regular,
-    color: '#64748B',
   },
   tooltipValue: {
     fontSize: getResponsiveFontSize('small'),
     fontFamily: FontFamily.monasans.bold,
-    color: '#0F172A',
   },
 });

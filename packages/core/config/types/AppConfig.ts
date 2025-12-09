@@ -30,6 +30,9 @@ export interface AppConfig {
   // Branding
   branding: BrandingConfig;
   
+  // Login configuration
+  login?: LoginConfig;
+  
   // API services
   services: ServiceConfig;
   
@@ -50,12 +53,16 @@ export interface MenuItemConfig {
 }
 
 export interface BrandingConfig {
-  primaryColor: string;
-  primaryDark: string;
-  primaryLight: string;
   logo: string;
   appName: string;
   splashImage?: string;
+  // Note: primaryColor sekarang di-handle oleh Theme Service, tidak lagi di config
+}
+
+export interface LoginConfig {
+  showSignUp?: boolean; // Show/hide sign up link
+  showSocialLogin?: boolean; // Show/hide social login buttons
+  socialLoginProviders?: string[]; // List of social login providers (e.g., ['google', 'facebook'])
 }
 
 export interface ServiceConfig {

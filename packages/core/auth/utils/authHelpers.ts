@@ -3,7 +3,7 @@
  * Helper functions untuk auto-refresh token dan background tasks
  */
 import { tokenService } from '../services/tokenService';
-import { refreshTokenIfNeeded } from '../../config/services/axiosConfig';
+import { refreshTokenIfNeeded } from '@core/config';
 
 /**
  * Setup background token refresh

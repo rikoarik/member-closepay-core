@@ -28,7 +28,7 @@ const lightColors: ThemeColors = {
   textSecondary: '#6B7280',
   textTertiary: '#9CA3AF',
   
-  primary: '#0066CC',
+  primary: '#f94aff',
   primaryLight: '#E6F2FF',
   primaryDark: '#0052A3',
   

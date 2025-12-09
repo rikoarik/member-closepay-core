@@ -26,7 +26,7 @@ import {
   TabSwitcher,
   ScreenHeader,
   type Tab,
-} from '../../config';
+} from '@core/config';
 
 type ThemeModeOption = 'system' | 'light' | 'dark';
 

@@ -1,4 +1,4 @@
-# Merchant Closepay V2 - Member Base App
+# Closepay V2 - Member Base App
 
 React Native application untuk Closepay Member Base dengan multi-tenant support, plugin system, dan custom UI components.
 
@@ -115,10 +115,6 @@ member-base-app/
 │       │   ├── context/          # I18n context
 │       │   ├── hooks/            # useTranslation hook
 │       │   └── locales/          # Translation files (en, id)
-│       ├── navigation/           # Navigation system
-│       │   ├── AuthNavigator.tsx
-│       │   ├── BaseNavigator.tsx
-│       │   └── createAppNavigator.tsx
 │       ├── notification/         # Notification system
 │       │   ├── components/       # Notification list
 │       │   ├── hooks/            # useNotifications hook
@@ -162,25 +158,16 @@ Authentication dan authorization dengan JWT token management.
 **Store:**
 - `authStore` - Global auth state (Zustand)
 
-### Navigation Module (`@core/navigation`)
+### Account Module (`@core/account`)
 
-Type-safe navigation system dengan stack dan tab navigators.
+Account management dengan user profile, company, dan outlet management.
 
 **Components:**
-- `AuthNavigator` - Navigation untuk authenticated users
-- `BaseNavigator` - Base navigation structure
-- `createAppNavigator` - Factory untuk membuat app navigator
+- `ProfileScreen` - User profile screen
+- `EditProfileScreen` - Edit profile screen
 
-**Usage:**
-```typescript
-import { createAppNavigator } from '@core/navigation';
-
-const AppNavigator = createAppNavigator({
-  tenantId: 'member-base',
-  HomeScreen: HomeScreen,
-  appScreens: customScreens,
-});
-```
+**Services:**
+- `accountService` - Account API calls
 
 ### Theme Module (`@core/theme`)
 

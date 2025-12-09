@@ -6,6 +6,8 @@
 import { AppConfig, MenuItemConfig } from '../types/AppConfig';
 import { getTenantConfig, getCurrentTenantId } from './tenantService';
 import { TenantConfig } from '../tenants';
+import axiosInstance from './axiosConfig';
+import { configEventEmitter } from '../utils/configEventEmitter';
 
 export interface ConfigService {
   loadConfig(): Promise<AppConfig>;
@@ -13,7 +15,7 @@ export interface ConfigService {
   isFeatureEnabled(feature: string): boolean;
   isModuleEnabled(module: string): boolean;
   getMenuConfig(): MenuItemConfig[];
-  refreshConfig(): Promise<void>;
+  refreshConfig(force?: boolean): Promise<void>; // Add force parameter untuk bypass cache
   setConfig(config: AppConfig): void; // Add method to set config directly
   getTenantConfig(): TenantConfig | null; // Get tenant config from current app config
 }
@@ -33,9 +35,13 @@ const DEFAULT_CONFIG: AppConfig = {
   paymentMethods: ['balance'],
   homeVariant: 'dashboard',
   branding: {
-    primaryColor: '#0066CC',
     logo: '',
     appName: 'Closepay Merchant',
+  },
+  login: {
+    showSignUp: true,
+    showSocialLogin: false,
+    socialLoginProviders: ['google'], // Default only Google, no Facebook
   },
   services: {
     api: {
@@ -47,6 +53,9 @@ const DEFAULT_CONFIG: AppConfig = {
 
 class ConfigServiceImpl implements ConfigService {
   private config: AppConfig | null = null;
+  private lastRefreshTime: number = 0; // Timestamp terakhir refresh
+  private cacheExpiry: number = 5 * 60 * 1000; // 5 menit cache expiry
+  private pendingRefresh: Promise<AppConfig> | null = null; // Debouncing
 
   async loadConfig(): Promise<AppConfig> {
     // TODO: Load config from API or local storage
@@ -78,16 +87,19 @@ class ConfigServiceImpl implements ConfigService {
           homeVariant: tenantConfig.homeVariant || config.homeVariant,
           branding: {
             ...config.branding,
-            primaryColor: tenantConfig.theme.primaryColor || config.branding.primaryColor,
             logo: tenantConfig.theme.logo || config.branding.logo,
             appName: tenantConfig.theme.appName || config.branding.appName,
           },
         };
+        // Emit event untuk notify subscribers
+        configEventEmitter.emit(this.config);
         return;
       }
     }
     
     this.config = config;
+    // Emit event untuk notify subscribers
+    configEventEmitter.emit(this.config);
   }
   
   /**
@@ -125,8 +137,85 @@ class ConfigServiceImpl implements ConfigService {
     return config.menuConfig.filter(item => item.visible);
   }
 
-  async refreshConfig(): Promise<void> {
-    this.config = await this.loadConfig();
+  async refreshConfig(force: boolean = false): Promise<void> {
+    // Debouncing: jika ada pending refresh, return yang sama
+    if (this.pendingRefresh && !force) {
+      console.log('[ConfigService] Refresh already in progress, reusing pending request');
+      return this.pendingRefresh.then(() => {});
+    }
+
+    // Caching: skip jika masih dalam cache expiry dan tidak force
+    const now = Date.now();
+    const timeSinceLastRefresh = now - this.lastRefreshTime;
+    
+    if (!force && timeSinceLastRefresh < this.cacheExpiry) {
+      console.log(`[ConfigService] Using cached config (${Math.round(timeSinceLastRefresh / 1000)}s ago, ${Math.round((this.cacheExpiry - timeSinceLastRefresh) / 1000)}s remaining)`);
+      return Promise.resolve();
+    }
+
+    // Create pending refresh promise untuk debouncing
+    this.pendingRefresh = (async () => {
+      try {
+        // Load dari backend API
+        const companyId = this.config?.companyId || 'member-base';
+        
+        // TODO: Sesuaikan endpoint dengan backend API
+        // Expected endpoint: GET /config/app/{companyId}
+        const response = await axiosInstance.get<AppConfig>(
+          `/config/app/${companyId}`
+        );
+        
+        // Update config dengan data dari backend
+        const newConfig = response.data;
+        
+        // Merge dengan tenant config jika ada
+        if (newConfig.tenantId || newConfig.companyId) {
+          const tenantId = newConfig.tenantId || newConfig.companyId;
+          const tenantConfig = getTenantConfig(tenantId);
+          
+          if (tenantConfig) {
+            this.config = {
+              ...newConfig,
+              tenantId: tenantId,
+              enabledFeatures: tenantConfig.enabledFeatures,
+              homeVariant: tenantConfig.homeVariant || newConfig.homeVariant,
+              branding: {
+                ...newConfig.branding,
+                logo: tenantConfig.theme.logo || newConfig.branding.logo,
+                appName: tenantConfig.theme.appName || newConfig.branding.appName,
+              },
+            };
+            this.lastRefreshTime = Date.now();
+            // Emit event untuk notify subscribers
+            configEventEmitter.emit(this.config);
+            return this.config;
+          }
+        }
+        
+        this.config = newConfig;
+        this.lastRefreshTime = Date.now();
+        // Emit event untuk notify subscribers
+        configEventEmitter.emit(this.config);
+        return this.config;
+      } catch (error: any) {
+        console.error('[ConfigService] Failed to refresh config from API:', error);
+        // JANGAN throw error - keep existing config
+        // Fallback ke existing config, tidak overwrite dengan default
+        if (!this.config) {
+          this.config = DEFAULT_CONFIG;
+          this.lastRefreshTime = Date.now();
+          // Emit event untuk default config
+          configEventEmitter.emit(this.config);
+        }
+        // Re-throw untuk hook bisa handle cooldown
+        throw error;
+      } finally {
+        // Clear pending setelah selesai
+        this.pendingRefresh = null;
+      }
+    })();
+
+    return this.pendingRefresh.then(() => {});
   }
 }
 
