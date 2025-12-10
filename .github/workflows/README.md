@@ -13,12 +13,10 @@ Workflow ini dijalankan pada:
 **Jobs:**
 - **test-lint**: Menjalankan test dengan coverage dan linting
 - **build-android**: Build Android APK (debug & release)
-- **build-ios**: Build iOS (simulator untuk tanpa signing, atau device untuk dengan signing)
 
 **Artifacts:**
 - Android Debug APK
 - Android Release APK
-- iOS Build artifacts (jika tersedia)
 
 ### 2. Release Workflow (`.github/workflows/release.yml`)
 
@@ -29,8 +27,7 @@ Workflow ini dijalankan pada:
 
 **Jobs:**
 - **build-android-release**: Build Android Release APK
-- **build-ios-release**: Build iOS Release IPA (jika signing tersedia)
-- **create-release**: Membuat GitHub Release dan upload artifacts
+- **create-release**: Membuat GitHub Release dan upload APK
 
 ## Setup
 
@@ -38,33 +35,7 @@ Workflow ini dijalankan pada:
 
 1. **Node.js**: Versi 20 atau lebih tinggi
 2. **Android SDK**: Otomatis diinstall oleh GitHub Actions
-3. **Xcode**: Otomatis tersedia di macOS runner
-
-### GitHub Secrets (untuk iOS Build)
-
-Untuk build iOS dengan code signing, tambahkan secrets berikut di repository settings:
-
-1. `IOS_CERTIFICATE_BASE64`: Base64 encoded .p12 certificate
-   ```bash
-   base64 -i certificate.p12 | pbcopy
-   ```
-
-2. `IOS_CERTIFICATE_PASSWORD`: Password untuk certificate
-
-3. `IOS_PROVISIONING_PROFILE_BASE64`: Base64 encoded provisioning profile
-   ```bash
-   base64 -i profile.mobileprovision | pbcopy
-   ```
-
-4. `IOS_KEYCHAIN_PASSWORD`: Password untuk keychain (bisa random string)
-
-**Catatan**: Jika secrets tidak di-set, iOS build akan menggunakan simulator build tanpa signing.
-
-### iOS ExportOptions.plist
-
-File `ios/ExportOptions.plist` digunakan untuk export IPA. Update file ini dengan:
-- `teamID`: Apple Developer Team ID
-- `provisioningProfiles`: Mapping bundle ID ke provisioning profile name
+3. **Java**: Versi 17 (Temurin)
 
 ## Usage
 
@@ -98,12 +69,7 @@ Artifacts dari build dapat di-download dari:
 - Pastikan `debug.keystore` ada di `android/app/`
 - Check Gradle version compatibility
 - Verify Android SDK setup
-
-### iOS Build Fails
-
-- Pastikan CocoaPods dependencies terinstall
-- Verify code signing setup jika menggunakan signing
-- Check Xcode version compatibility
+- Pastikan Java 17 terinstall
 
 ### Test Coverage Fails
 
