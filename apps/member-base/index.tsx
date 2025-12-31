@@ -15,7 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@core/theme';
 import { I18nProvider } from '@core/i18n';
 import { SecurityProvider } from '@core/security/SecurityProvider';
-import { configService, configRefreshService } from '@core/config';
+import { configService, configRefreshService, logger } from '@core/config';
 import { initializePlugins } from '@core/config';
 import { createAppNavigator } from '@core/navigation';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -99,7 +99,7 @@ function MemberBaseAppContent(): React.JSX.Element {
         await initializePlugins();
         setPluginsInitialized(true);
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        logger.error('Failed to initialize app', error);
         // Continue with default config
         setConfigLoaded(true);
         setPluginsInitialized(true);
@@ -115,7 +115,7 @@ function MemberBaseAppContent(): React.JSX.Element {
       if (nextAppState === 'active') {
         // App menjadi active, refresh config dari backend
         configRefreshService.refresh().catch((error) => {
-          console.error('[App] Failed to refresh config on app active:', error);
+          logger.error('Failed to refresh config on app active', error);
         });
       }
     };
@@ -146,7 +146,7 @@ function MemberBaseAppContent(): React.JSX.Element {
           lastConfig.companyName !== appConfig.companyName;
         
         if (hasChanged) {
-          console.log('[Config] Config file changed, updating...');
+          logger.debug('Config file changed, updating...');
           configService.setConfig(appConfig);
           lastConfig = appConfig;
         }
@@ -186,7 +186,7 @@ function MemberBaseAppContent(): React.JSX.Element {
         const currentColor = loadThemeColor();
         
         if (currentColor && currentColor !== lastThemeColor) {
-          console.log('[Theme] Theme color file changed:', lastThemeColor, '→', currentColor);
+          logger.debug('Theme color file changed:', lastThemeColor, '→', currentColor);
           lastThemeColor = currentColor;
         }
       } catch (error) {

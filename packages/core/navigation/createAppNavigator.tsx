@@ -7,7 +7,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { TenantId, getTenantConfig, PluginRegistry, getPluginComponentLoader, QuickMenuSettingsScreen, OnboardingScreen, onboardingService } from '@core/config';
+import { TenantId, getTenantConfig, PluginRegistry, getPluginComponentLoader, QuickMenuSettingsScreen, OnboardingScreen, onboardingService, logger } from '@core/config';
 import { ProfileScreen, EditProfileScreen } from '@core/account';
 import { LanguageSelectionScreen } from '@core/i18n';
 import { ThemeSettingsScreen, useTheme } from '@core/theme';
@@ -104,7 +104,7 @@ export function createAppNavigator({
         try {
           await initializeAuth();
         } catch (error) {
-          console.error('[createAppNavigator] Error initializing auth:', error);
+          logger.error('Error initializing auth', error);
         }
       };
 
@@ -118,7 +118,7 @@ export function createAppNavigator({
           const completed = await onboardingService.isOnboardingCompleted();
           setIsOnboardingCompleted(completed);
         } catch (error) {
-          console.error('[createAppNavigator] Error checking onboarding:', error);
+          logger.error('Error checking onboarding', error);
           setIsOnboardingCompleted(false);
         } finally {
           setIsCheckingOnboarding(false);
@@ -136,19 +136,19 @@ export function createAppNavigator({
           const tenantConfig = getTenantConfig(tenantId);
           
           if (!tenantConfig) {
-            console.warn(`[createAppNavigator] Tenant config not found for tenantId: ${tenantId}`);
+            logger.warn(`Tenant config not found for tenantId: ${tenantId}`);
           }
 
           // Wait for plugin registry to be initialized
           if (!PluginRegistry.isInitialized()) {
-            console.warn('[createAppNavigator] PluginRegistry not initialized yet');
+            logger.warn('PluginRegistry not initialized yet');
             setIsLoading(false);
             return;
           }
 
           // Get enabled plugins from tenant config or registry
           const enabledPluginIds = tenantConfig?.enabledFeatures || 
-            PluginRegistry.getEnabledPlugins().map((p: any) => p.id);
+            PluginRegistry.getEnabledPlugins().map((p) => p.id);
 
           const routes: React.ReactElement[] = [];
 
@@ -164,7 +164,7 @@ export function createAppNavigator({
                 const LazyComponent = React.lazy(ComponentLoader);
 
                 if (!LazyComponent) {
-                  console.warn(`LazyComponent is undefined for route ${route.name} from plugin ${pluginId}`);
+                  logger.warn(`LazyComponent is undefined for route ${route.name} from plugin ${pluginId}`);
                   continue;
                 }
 
@@ -180,17 +180,17 @@ export function createAppNavigator({
                 if (React.isValidElement(screenElement)) {
                   routes.push(screenElement);
                 } else {
-                  console.warn(`Invalid screen element for route ${route.name} from plugin ${pluginId}`);
+                  logger.warn(`Invalid screen element for route ${route.name} from plugin ${pluginId}`);
                 }
               } catch (error) {
-                console.error(`Failed to load route ${route.name} from plugin ${pluginId}:`, error);
+                logger.error(`Failed to load route ${route.name} from plugin ${pluginId}`, error);
               }
             }
           }
 
           setPluginRoutes(routes);
         } catch (error) {
-          console.error('[createAppNavigator] Error loading navigation:', error);
+          logger.error('Error loading navigation', error);
         } finally {
           setIsLoading(false);
         }
@@ -204,7 +204,7 @@ export function createAppNavigator({
         await onboardingService.completeOnboarding();
         setIsOnboardingCompleted(true);
       } catch (error) {
-        console.error('[createAppNavigator] Error completing onboarding:', error);
+        logger.error('Error completing onboarding', error);
       }
     };
 

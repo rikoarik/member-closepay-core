@@ -9,6 +9,7 @@ import { TenantConfig } from '../tenants';
 import axiosInstance from './axiosConfig';
 import { configEventEmitter } from '../utils/configEventEmitter';
 import Config from '../../native/Config';
+import { isAxiosError, axiosErrorToApiError } from '../types/errors';
 
 export interface ConfigService {
   loadConfig(): Promise<AppConfig>;
@@ -55,15 +56,20 @@ const DEFAULT_CONFIG: AppConfig = {
 class ConfigServiceImpl implements ConfigService {
   private config: AppConfig | null = null;
   private lastRefreshTime: number = 0; // Timestamp terakhir refresh
-  private cacheExpiry: number = 5 * 60 * 1000; // 5 menit cache expiry
+  private cacheExpiry: number = API_CONSTANTS.CONFIG_CACHE_EXPIRY;
   private pendingRefresh: Promise<AppConfig> | null = null; // Debouncing
 
+  /**
+   * Load config dari API atau local storage
+   * @returns Promise yang resolve dengan AppConfig
+   * @note Apps sebaiknya call setConfig() dengan config spesifik mereka
+   */
   async loadConfig(): Promise<AppConfig> {
     // TODO: Load config from API or local storage
     // For now, return default config as fallback
     // Apps should call setConfig() with their specific config
     if (!this.config) {
-      console.warn('[ConfigService] Using default config. Apps should load and set their specific config.');
+      logger.warn('Using default config. Apps should load and set their specific config.');
       this.config = DEFAULT_CONFIG;
     }
     return this.config;
@@ -141,7 +147,7 @@ class ConfigServiceImpl implements ConfigService {
   async refreshConfig(force: boolean = false): Promise<void> {
     // Debouncing: jika ada pending refresh, return yang sama
     if (this.pendingRefresh && !force) {
-      console.log('[ConfigService] Refresh already in progress, reusing pending request');
+      logger.debug('Refresh already in progress, reusing pending request');
       return this.pendingRefresh.then(() => { });
     }
 
@@ -150,7 +156,7 @@ class ConfigServiceImpl implements ConfigService {
     const timeSinceLastRefresh = now - this.lastRefreshTime;
 
     if (!force && timeSinceLastRefresh < this.cacheExpiry) {
-      console.log(`[ConfigService] Using cached config (${Math.round(timeSinceLastRefresh / 1000)}s ago, ${Math.round((this.cacheExpiry - timeSinceLastRefresh) / 1000)}s remaining)`);
+      logger.debug(`Using cached config (${Math.round(timeSinceLastRefresh / 1000)}s ago, ${Math.round((this.cacheExpiry - timeSinceLastRefresh) / 1000)}s remaining)`);
       return Promise.resolve();
     }
 
@@ -198,8 +204,8 @@ class ConfigServiceImpl implements ConfigService {
         // Emit event untuk notify subscribers
         configEventEmitter.emit(this.config);
         return this.config;
-      } catch (error: any) {
-        console.error('[ConfigService] Failed to refresh config from API:', error);
+      } catch (error: unknown) {
+        logger.error('Failed to refresh config from API', error);
         // JANGAN throw error - keep existing config
         // Fallback ke existing config, tidak overwrite dengan default
         if (!this.config) {
@@ -209,7 +215,8 @@ class ConfigServiceImpl implements ConfigService {
           configEventEmitter.emit(this.config);
         }
         // Re-throw untuk hook bisa handle cooldown
-        throw error;
+        // Convert to ApiError if it's an AxiosError for consistent error handling
+        throw handleApiError(error);
       } finally {
         // Clear pending setelah selesai
         this.pendingRefresh = null;

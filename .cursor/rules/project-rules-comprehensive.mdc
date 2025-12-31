@@ -1,0 +1,785 @@
+---
+alwaysApply: true
+---
+
+# Closepay V2 - Member Base App - Comprehensive Project Rules
+
+## 📱 Project Overview
+
+**Nama**: Closepay V2 - Member Base App  
+**Deskripsi**: React Native application untuk Closepay Member Base dengan multi-tenant support, plugin system, dan custom UI components.  
+**React Native**: 0.82.1  
+**TypeScript**: 5.8.3  
+**Node.js**: >= 20  
+
+---
+
+## 🏛️ Arsitektur Layer (Hierarchy)
+
+### Layer Overview
+```
+┌─────────────────────────────────────────┐
+│           APPS (Company-Specific)       │  apps/{companyInitial}/
+├─────────────────────────────────────────┤
+│         PLUGINS (Domain-Specific)       │  packages/plugins/{module}/
+├─────────────────────────────────────────┤
+│         FEATURES (Generic)*             │  packages/features/{module}/ (planned)
+├─────────────────────────────────────────┤
+│           CORE (Foundation)             │  packages/core/{module}/
+└─────────────────────────────────────────┘
+```
+
+### 1. **CORE** (Foundation) - `packages/core/`
+Generik, reusable, tidak bergantung domain spesifik.
+
+**Modules yang tersedia:**
+| Module | Path | Deskripsi |
+|--------|------|-----------|
+| `auth` | `packages/core/auth/` | Authentication, JWT token management |
+| `config` | `packages/core/config/` | Configuration system, plugin loader, responsive utilities |
+| `account` | `packages/core/account/` | User profile, company, outlet management |
+| `notification` | `packages/core/notification/` | Notification service dan components |
+| `theme` | `packages/core/theme/` | Theming system (dark/light mode) |
+| `i18n` | `packages/core/i18n/` | Internationalization (Indonesian & English) |
+| `security` | `packages/core/security/` | FreeRASP integration, security features |
+| `native` | `packages/core/native/` | Native config access (environment variables) |
+| `navigation` | `packages/core/navigation/` | Navigation utilities |
+
+**Rules:**
+- ❌ Core TIDAK BOLEH depend ke Features/Plugins
+- ❌ JANGAN diubah per company
+- ✅ Hanya operasi generik (auth, config, account management)
+
+### 2. **FEATURES** (Generic) - `packages/features/`
+Abstraksi generik untuk fitur yang dipakai banyak segment.
+
+**Status**: ⚠️ Folder belum ada (planned)
+
+**Planned Modules:**
+- `catalog` - Product catalog abstraction
+- `order` - Order processing abstraction
+- `reporting` - Reporting abstraction
+
+**Rules:**
+- ❌ Features TIDAK BOLEH depend ke Plugins
+- ❌ JANGAN diubah per company
+- ✅ Abstrasi generik (Product, Order, Report)
+
+### 3. **PLUGINS** (Domain-Specific) - `packages/plugins/`
+Logic dan UI spesifik domain. Bisa di-extend dan customize per company.
+
+**Core Plugins (bisa di-enable/disable):**
+| Plugin | Path | Deskripsi |
+|--------|------|-----------|
+| `balance` | `packages/plugins/balance/` | Balance ledger (immutable) |
+| `payment` | `packages/plugins/payment/` | Payment gateway (single entry point) |
+
+**Domain Plugins:**
+| Plugin | Path | Deskripsi |
+|--------|------|-----------|
+| `catalog` | `packages/plugins/catalog/` | Product catalog management |
+| `order` | `packages/plugins/order/` | Order processing |
+| `reporting` | `packages/plugins/reporting/` | Analytics & reports |
+| `invoice` | `packages/plugins/invoice/` | Invoicing system |
+| `bank-sampah` | `packages/plugins/bank-sampah/` | Waste bank |
+| `kso` | `packages/plugins/kso/` | Operational cooperation |
+| `card-transaction` | `packages/plugins/card-transaction/` | Card payment processing |
+| `donasi` | `packages/plugins/donasi/` | Donations |
+| `marketplace-fnb` | `packages/plugins/marketplace-fnb/` | F&B marketplace |
+| `marketplace-produk` | `packages/plugins/marketplace-produk/` | Product marketplace |
+
+**Rules:**
+- ✅ Plugins BOLEH depend ke Core & Features
+- ✅ Plugins BOLEH memanggil plugin lain
+- ✅ Bisa di-extend dan customize per company
+
+### 4. **APPS** (Company-Specific) - `apps/`
+Company-specific applications dengan config, assets, dan overrides.
+
+**Structure:**
+```
+apps/{companyId}/
+├── config/
+│   ├── app.config.ts        # Main app configuration
+│   ├── app.config.template.ts
+│   └── theme.color.ts       # Theme color overrides
+├── assets/
+│   ├── android/             # Android icons (mipmap-*)
+│   └── ios/                 # iOS icons (AppIcon.appiconset)
+├── src/
+│   ├── components/          # App-specific components
+│   └── screens/             # App-specific screens
+├── tools/                   # App tools (CMS, etc)
+├── index.tsx                # App entry point
+└── README.md
+```
+
+**Rules:**
+- ✅ Company-specific config, assets, overrides
+- ✅ Customization via AppConfig, bukan modify base code
+- ❌ JANGAN modify core/features/plugins untuk customization per company
+
+---
+
+## 📦 Dependency Rules (STRICT)
+
+### ✅ ALLOWED - Dependency Flow
+```
+Apps → Plugins → Features → Core
+```
+
+### ❌ FORBIDDEN - Reverse Dependency
+- Core → Features ❌
+- Core → Plugins ❌
+- Core → Apps ❌
+- Features → Plugins ❌
+- Features → Apps ❌
+- Plugins → Apps ❌
+
+### Contoh Implementasi
+
+#### ✅ BENAR: Plugin memanggil Core
+```typescript
+// packages/plugins/payment/services/paymentService.ts
+import { tokenService } from '../../../core/auth';
+import { configService } from '../../../core/config';
+const token = await tokenService.getToken();
+```
+
+#### ✅ BENAR: Plugin memanggil Plugin lain
+```typescript
+// packages/plugins/payment/services/paymentService.ts
+import { mutationService } from '../../balance/services/mutationService';
+import { TransactionType } from '../../balance/models/TransactionType';
+```
+
+#### ❌ SALAH: Core tahu tentang domain spesifik
+```typescript
+// JANGAN di core - ini domain specific!
+core.topUpWithWaste(kg) // ❌ Harusnya di plugin bank-sampah
+```
+
+---
+
+## 📁 Struktur Folder
+
+### Core Module Structure
+```
+packages/core/{module}/
+├── models/          # Data models
+├── services/        # Business logic
+├── hooks/           # React hooks
+├── components/      # UI components (jika ada)
+├── types/           # TypeScript types
+├── context/         # React context (jika ada)
+├── stores/          # Zustand stores (jika ada)
+└── index.ts         # Export semua public API
+```
+
+### Plugin Module Structure
+```
+packages/plugins/{module}/
+├── components/      # UI components
+├── hooks/           # Custom hooks
+├── models/          # Data models (jika ada)
+├── services/        # Business logic (jika ada)
+├── types/           # TypeScript types (jika ada)
+├── plugin.manifest.json  # Plugin manifest
+└── index.ts         # Module definition
+```
+
+### App Structure
+```
+apps/{companyInitial}/
+├── config/
+│   ├── app.config.ts         # AppConfig instance
+│   ├── app.config.template.ts
+│   └── theme.color.ts        # Theme overrides
+├── assets/
+│   ├── android/
+│   │   └── mipmap-*/         # ic_launcher.png, ic_launcher_round.png
+│   └── ios/
+│       └── AppIcon.appiconset/
+├── src/
+│   ├── components/
+│   │   └── home/             # Home-specific components
+│   └── screens/
+├── tools/
+└── index.tsx
+```
+
+---
+
+## 💰 Balance & Payment System Rules
+
+### Balance Plugin (Ledger)
+**Lokasi**: `packages/plugins/balance/`
+
+**Prinsip:**
+- 🔒 **Immutable**: Mutasi tidak bisa diubah/dihapus
+- 📊 **Single Source of Truth**: Saldo = penjumlahan semua mutasi
+- 🔄 **Audit Trail**: Setiap perubahan tercatat
+- ❌ **No Direct Access**: Tidak ada operasi uang langsung ke balance service
+- 📦 **Core Plugin**: Bisa di-enable/disable via AppConfig
+
+**Components:**
+- `TransactionHistoryScreen`
+- `TopUpIcon`, `WithdrawIcon`
+
+**Services:**
+- `balanceService`, `mutationService`
+
+**Models:**
+- `BalanceAccount`, `BalanceMutation`, `TransactionType`
+
+### Payment Plugin (Gateway)
+**Lokasi**: `packages/plugins/payment/`
+
+**Prinsip:**
+- 🚪 **Single Entry Point**: Semua operasi uang melalui payment service
+- 🔄 **Auto Update Ledger**: Semua operasi update balance/ledger
+- 🔑 **Idempotency**: Support idempotency key
+- 🔗 **Dependency**: Payment plugin depends on balance plugin
+
+**Components:**
+- `TopUpScreen`, `WithdrawScreen`, `VirtualAccountScreen`
+
+**Services:**
+- `paymentService`, `topUpService`, `withdrawService`, `transferService`, `cardTransactionService`
+
+### Transaction Flow
+```
+User Action → Plugin → plugins/payment → plugins/balance → Backend API
+```
+
+Jika menggunakan order:
+```
+User Action → Plugin → features/order → plugins/payment → plugins/balance → Backend API
+```
+
+---
+
+## 🎨 Accent Color System (STRICT)
+
+### Prinsip Dasar
+- **Sistem seperti Windows Accent Color**: Ubah 1 accent color di config = semua warna interaktif otomatis berubah
+- **Single Source of Truth**: `apps/{companyInitial}/config/app.config.ts` → `branding.primaryColor`
+- **Auto-Generated Colors**: Semua warna interaktif di-generate dari accent color
+
+### ✅ DO - Warna yang HARUS Menggunakan Theme Colors
+
+#### 1. Active/Selected States
+```typescript
+// ✅ BENAR
+<TouchableOpacity
+  style={{
+    backgroundColor: isActive ? colors.primary : colors.surface,
+    borderColor: isActive ? colors.primary : colors.border,
+  }}
+>
+  <Text style={{ color: isActive ? colors.surface : colors.text }}>
+    {label}
+  </Text>
+</TouchableOpacity>
+```
+
+#### 2. Primary Action Buttons
+```typescript
+// ✅ BENAR
+<TouchableOpacity style={{ backgroundColor: colors.primary }}>
+  <Text style={{ color: colors.surface }}>Simpan</Text>
+</TouchableOpacity>
+```
+
+#### 3. Indicators & Highlights
+- Tab indicator: `colors.primary`
+- Progress bar: `colors.primary`
+- Checkbox selected: `colors.primary`
+- Radio selected: `colors.primary`
+
+#### 4. Pill/Chip Buttons
+```typescript
+// ✅ BENAR
+<TouchableOpacity
+  style={{
+    backgroundColor: isActive ? colors.primary : colors.surface,
+  }}
+>
+  <Text style={{ color: isActive ? colors.surface : colors.text }}>
+    {label}
+  </Text>
+</TouchableOpacity>
+```
+
+### ❌ DON'T - Hardcoded Colors
+
+#### Jangan Hardcode Hex Colors
+```typescript
+// ❌ SALAH
+backgroundColor: isActive ? '#0066CC' : colors.surface;
+const selectedTextColor = '#FFFFFF';
+
+// ✅ BENAR
+backgroundColor: isActive ? colors.primary : colors.surface;
+const selectedTextColor = colors.surface;
+```
+
+#### Jangan Hardcode di StyleSheet
+```typescript
+// ❌ SALAH
+const styles = StyleSheet.create({
+  button: { backgroundColor: '#0066CC' }, // JANGAN!
+});
+
+// ✅ BENAR - Set inline dengan theme colors
+<TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]}>
+```
+
+#### Jangan Pre-create Icon dengan Hardcoded Colors
+```typescript
+// ❌ SALAH
+const ICON_INSTANCES = {
+  payIPL: <ArrowDown2 size={20} color="#3B82F6" variant="Bold" />,
+};
+
+// ✅ BENAR - Function yang menerima color parameter
+const getMenuIcon = (iconName: string, iconColor: string) => {
+  switch (iconName) {
+    case 'payIPL':
+      return <ArrowDown2 size={20} color={iconColor} variant="Bold" />;
+  }
+};
+```
+
+### Exception Rules
+
+#### Error States
+```typescript
+// ✅ Error button menggunakan error color
+<TouchableOpacity style={{ backgroundColor: colors.error }}>
+  <Text style={{ color: colors.surface }}>Hapus</Text>
+</TouchableOpacity>
+```
+
+#### Secondary Actions
+```typescript
+// ✅ Secondary button
+<TouchableOpacity
+  style={{
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+  }}
+>
+  <Text style={{ color: colors.primary }}>Batal</Text>
+</TouchableOpacity>
+```
+
+### Testing Accent Color
+Setelah implementasi, test dengan mengubah accent color:
+```typescript
+// apps/member-base/config/app.config.ts
+branding: {
+  primaryColor: '#EF4444', // Ubah ke merah
+}
+```
+
+**Expected Result:**
+- ✅ Semua button primary menjadi merah
+- ✅ Semua indicator menjadi merah
+- ✅ Semua active/selected states menjadi merah
+
+---
+
+## 📝 TypeScript Rules
+
+### ✅ DO
+```typescript
+// Define interfaces untuk semua contracts
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// Use strict typing
+const user: UserProfile = await getUser();
+
+// Export types dari index.ts
+export type { UserProfile } from './types';
+```
+
+### ❌ DON'T
+```typescript
+// Avoid `any` type
+const data: any = response; // ❌
+
+// Proper typing
+const data: ApiResponse<UserProfile> = response; // ✅
+```
+
+---
+
+## 📛 Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Modules/Folders | kebab-case | `balance-management`, `bank-sampah` |
+| Components | PascalCase | `ProfileScreen.tsx`, `BalanceCard.tsx` |
+| Utilities/Services | camelCase | `authService.ts`, `formatCurrency.ts` |
+| Types/Interfaces | PascalCase | `UserProfile`, `AppConfig` |
+| Hooks | camelCase + `use` prefix | `useAuth`, `useTheme`, `useTranslation` |
+| Constants | SCREAMING_SNAKE_CASE | `API_BASE_URL`, `MAX_RETRY_COUNT` |
+| Test Files | *.test.ts(x) atau *.spec.ts(x) | `auth.test.ts`, `LoginScreen.spec.tsx` |
+
+---
+
+## 📥 Import Rules
+
+### Path Aliases (tsconfig.json & babel.config.js)
+```typescript
+// Core imports
+import { useAuth } from '@core/auth';
+import { useTheme } from '@core/theme';
+import { useTranslation } from '@core/i18n';
+import { scale, moderateScale } from '@core/config';
+
+// Plugin imports
+import { TransactionHistoryScreen } from '@plugins/balance';
+import { TopUpScreen } from '@plugins/payment';
+
+// App imports
+import { HomeScreen } from '@app/screens';
+```
+
+### Relative Imports (within same package)
+```typescript
+// Dalam core module
+import { tokenService } from '../auth/services/tokenService';
+
+// Dalam plugin
+import { mutationService } from '../../balance/services/mutationService';
+```
+
+### Import dari index.ts
+```typescript
+// ✅ BENAR - Import dari index
+import { useAuth, authService, LoginScreen } from '@core/auth';
+
+// ❌ SALAH - Import langsung dari file
+import { useAuth } from '@core/auth/hooks/useAuth';
+```
+
+---
+
+## ⚙️ Configuration System
+
+### AppConfig Interface
+```typescript
+interface AppConfig {
+  companyInitial: string;
+  companyName: string;
+  tenantId: string;
+  segmentId: string;
+  
+  enabledFeatures: string[];
+  enabledModules: string[];
+  
+  homeVariant: 'dashboard' | 'member';
+  homeTabs: TabConfig[];
+  menuConfig: MenuConfig[];
+  paymentMethods: string[];
+  
+  branding: {
+    logo?: string;
+    appName: string;
+    primaryColor?: string;
+  };
+  
+  login: {
+    showSignUp: boolean;
+    showSocialLogin: boolean;
+    socialLoginProviders: string[];
+  };
+  
+  services: {
+    api: { baseUrl: string; timeout: number };
+    auth: { useMock: boolean };
+    features: { pushNotification: boolean; analytics: boolean; crashReporting: boolean };
+  };
+  
+  showQrButton?: boolean;
+}
+```
+
+### Environment Variables
+```
+.env.staging     → Development/Staging environment
+.env.production  → Production environment
+```
+
+**Access via:**
+```typescript
+import Config from '@core/native/Config';
+const apiUrl = Config.API_BASE_URL;
+```
+
+### Feature Flags
+Feature diaktifkan via `enabledFeatures` dan `enabledModules` di AppConfig.
+
+---
+
+## 🏗️ Development Workflow
+
+### Build Order
+```
+1. Core → 2. Features → 3. Plugins → 4. Apps
+```
+
+### Available Scripts
+
+#### Development
+```bash
+npm start              # Start Metro bundler
+npm run android        # Run on Android
+npm run ios            # Run on iOS
+```
+
+#### Building
+```bash
+npm run build:apk:debug     # Debug APK
+npm run build:apk           # Release APK
+npm run build:apk:staging   # Staging APK
+npm run build:apk:prod      # Production APK
+npm run build:aab           # Android App Bundle
+```
+
+#### Testing
+```bash
+npm test                    # Run tests
+npm run test:coverage       # With coverage
+npm run test:e2e:android    # E2E Android
+npm run test:e2e:ios        # E2E iOS
+```
+
+#### Utilities
+```bash
+npm run copy:assets         # Copy company assets (logo, icons)
+npm run lint                # Run ESLint
+```
+
+---
+
+## 📱 Company-Specific Logo System
+
+### Struktur Assets
+```
+apps/{companyInitial}/assets/
+├── android/
+│   ├── mipmap-mdpi/      # 48x48
+│   ├── mipmap-hdpi/      # 72x72
+│   ├── mipmap-xhdpi/     # 96x96
+│   ├── mipmap-xxhdpi/    # 144x144
+│   └── mipmap-xxxhdpi/   # 192x192
+└── ios/
+    └── AppIcon.appiconset/
+        ├── Contents.json
+        ├── icon-20@2x.png   # 40x40
+        ├── icon-20@3x.png   # 60x60
+        ├── icon-29@2x.png   # 58x58
+        ├── icon-29@3x.png   # 87x87
+        ├── icon-40@2x.png   # 80x80
+        ├── icon-40@3x.png   # 120x120
+        ├── icon-60@2x.png   # 120x120
+        ├── icon-60@3x.png   # 180x180
+        └── icon-1024.png    # 1024x1024
+```
+
+### Auto-Detection
+Script `scripts/copy-company-assets.js` otomatis detect company dari import di `App.tsx`:
+```typescript
+// App.tsx
+import MemberbaseApp from './apps/member-base';
+// → Company: "member-base"
+```
+
+### Switching Company
+1. Update import di `App.tsx`
+2. Run `npm run copy:assets` atau langsung `npm run build:apk`
+3. Logo otomatis terpakai
+
+---
+
+## 🔒 Security
+
+### FreeRASP Integration
+```typescript
+// packages/core/security/SecurityProvider.tsx
+import { SecurityProvider } from '@core/security';
+
+// Wrap app dengan SecurityProvider
+<SecurityProvider>
+  <App />
+</SecurityProvider>
+```
+
+### Security Features
+- Root/Jailbreak detection
+- Debugger detection
+- Tamper detection
+- Emulator detection
+
+---
+
+## 🌐 Internationalization (i18n)
+
+### Usage
+```typescript
+import { useTranslation } from '@core/i18n';
+
+const { t, changeLanguage, currentLanguage } = useTranslation();
+const text = t('home.title');
+```
+
+### Adding Translations
+```typescript
+// packages/core/i18n/locales/id.ts
+export default {
+  home: {
+    title: 'Beranda',
+    welcome: 'Selamat Datang',
+  },
+};
+
+// packages/core/i18n/locales/en.ts
+export default {
+  home: {
+    title: 'Home',
+    welcome: 'Welcome',
+  },
+};
+```
+
+---
+
+## 🎨 Theme System
+
+### Usage
+```typescript
+import { useTheme } from '@core/theme';
+
+const { colors, isDarkMode, toggleTheme } = useTheme();
+```
+
+### Theme Colors
+```typescript
+interface ThemeColors {
+  primary: string;        // Accent color
+  primaryLight: string;   // Lighter shade of primary
+  surface: string;        // Background color
+  background: string;     // App background
+  text: string;           // Primary text
+  textSecondary: string;  // Secondary text
+  border: string;         // Border color
+  error: string;          // Error color
+  errorLight: string;     // Light error background
+  success: string;        // Success color
+  successLight: string;   // Light success background
+  warning: string;        // Warning color
+  warningLight: string;   // Light warning background
+  info: string;           // Info color
+  infoLight: string;      // Light info background
+}
+```
+
+---
+
+## 📐 Responsive Design
+
+### Utilities
+```typescript
+import { 
+  scale, 
+  moderateScale, 
+  moderateVerticalScale,
+  getHorizontalPadding,
+  useDimensions 
+} from '@core/config';
+
+// Scale based on screen width
+const size = scale(24);
+
+// Moderate scale for fonts
+const fontSize = moderateScale(16);
+
+// Vertical scale
+const height = moderateVerticalScale(100);
+
+// Responsive padding
+const padding = getHorizontalPadding();
+
+// Reactive dimensions
+const { width, height, isTablet } = useDimensions();
+```
+
+---
+
+## ✅ Code Checklist
+
+### Sebelum Commit
+- [ ] Tidak ada hardcoded hex colors untuk interactive elements
+- [ ] Semua active states menggunakan `colors.primary`
+- [ ] Import dari index.ts, bukan file langsung
+- [ ] TypeScript strict typing (no `any`)
+- [ ] Dependency rules dipatuhi (Plugins → Core)
+- [ ] Component menggunakan responsive utilities
+- [ ] Translations tersedia untuk ID & EN
+
+### Sebelum PR
+- [ ] `npm run lint` pass
+- [ ] `npm test` pass
+- [ ] Manual testing di Android & iOS
+- [ ] Theme color testing (ubah accent color)
+
+---
+
+## 🐛 Troubleshooting
+
+### Metro Bundler Issues
+```bash
+npm start -- --reset-cache
+```
+
+### Android Build Issues
+```bash
+cd android && gradlew clean && cd ..
+npm run android
+```
+
+### iOS Build Issues
+```bash
+cd ios && rm -rf Pods && pod install && cd ..
+npm run ios
+```
+
+### Plugin tidak ter-load
+1. Pastikan plugin ada di `enabledModules` di AppConfig
+2. Check plugin manifest format
+3. Check console untuk error messages
+
+### Logo tidak berubah
+1. Uninstall app dari device/emulator
+2. Clean build (`gradlew clean` / `pod install`)
+3. Rebuild
+
+---
+
+## 📚 Additional Resources
+
+- **README.md** - Project overview dan quick start
+- **LOGO_SYSTEM.md** - Company logo system documentation
+- **apps/member-base/README.md** - Member base specific documentation
+
+---
+
+*Last updated: 2025-12-30*

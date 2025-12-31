@@ -5,15 +5,24 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { tokenService } from '../../auth/services/tokenService';
 import Config from '../../native/Config';
+import {
+  isAxiosError,
+  isAuthenticationError,
+  axiosErrorToApiError,
+  AuthErrorClass,
+  NetworkErrorClass,
+} from '../types/errors';
 
 // Base URL dari environment variable atau default ke staging
 // Production build harus set API_BASE_URL di .env.production
 const API_BASE_URL = Config.API_BASE_URL;
 
+import { logger } from './loggerService';
+
 // Log environment untuk debugging (hanya di development)
 if (__DEV__) {
-    console.log('[AxiosConfig] Environment:', Config.ENV);
-    console.log('[AxiosConfig] API Base URL:', API_BASE_URL);
+    logger.debug('Environment:', Config.ENV);
+    logger.debug('API Base URL:', API_BASE_URL);
 }
 
 /**
@@ -21,7 +30,7 @@ if (__DEV__) {
  */
 const axiosInstance: AxiosInstance = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 30000, // 30 seconds
+    timeout: API_CONSTANTS.DEFAULT_TIMEOUT,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -42,7 +51,7 @@ axiosInstance.interceptors.request.use(
                 config.headers.Authorization = `Bearer ${token}`;
             }
 
-            console.log('[Axios] Request:', {
+            logger.debug('Request:', {
                 method: config.method?.toUpperCase(),
                 url: config.url,
                 hasToken: !!token,
@@ -50,12 +59,12 @@ axiosInstance.interceptors.request.use(
 
             return config;
         } catch (error) {
-            console.error('[Axios] Request interceptor error:', error);
+            logger.error('Request interceptor error', error);
             return config;
         }
     },
     (error: AxiosError) => {
-        console.error('[Axios] Request error:', error);
+        logger.error('Request error', error);
         return Promise.reject(error);
     }
 );
@@ -66,7 +75,7 @@ axiosInstance.interceptors.request.use(
  */
 axiosInstance.interceptors.response.use(
     (response: AxiosResponse) => {
-        console.log('[Axios] Response:', {
+        logger.debug('Response:', {
             status: response.status,
             url: response.config.url,
         });
@@ -75,7 +84,7 @@ axiosInstance.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-        console.error('[Axios] Response error:', {
+        logger.error('Response error', error, {
             status: error.response?.status,
             url: error.config?.url,
             message: error.message,
@@ -83,22 +92,22 @@ axiosInstance.interceptors.response.use(
 
         // Handle 401 Unauthorized
         // Skip token refresh for login/auth endpoints that don't require authentication
-        const isAuthEndpoint = originalRequest?.url?.includes('/auth/account/login') ||
-            originalRequest?.url?.includes('/auth/account/register') ||
-            originalRequest?.url?.includes('/auth/account/forgot-password');
+        const isAuthEndpoint = API_CONSTANTS.AUTH_ENDPOINTS.some(endpoint =>
+            originalRequest?.url?.includes(endpoint)
+        );
 
         if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
             originalRequest._retry = true;
 
             try {
-                console.log('[Axios] Attempting token refresh...');
+                logger.info('Attempting token refresh...');
 
                 // Try to get refresh token
                 const refreshToken = await tokenService.getRefreshToken();
 
                 if (refreshToken) {
                     // Call refresh token endpoint
-                    // NOTE: Sesuaikan endpoint ini dengan API backend
+                    // TODO: Sesuaikan endpoint ini dengan API backend (current: /auth/refresh)
                     const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
                         refresh_token: refreshToken,
                     });
@@ -114,28 +123,24 @@ axiosInstance.interceptors.response.use(
                             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                         }
 
-                        console.log('[Axios] Token refreshed successfully, retrying request...');
+                        logger.info('Token refreshed successfully, retrying request...');
 
                         // Retry original request with new token
                         return axiosInstance(originalRequest);
                     }
                 }
-            } catch (refreshError) {
-                console.error('[Axios] Token refresh failed:', refreshError);
+            } catch (refreshError: unknown) {
+                logger.error('Token refresh failed', refreshError);
 
                 // Only clear tokens if it's a clear auth error (401, 403)
                 // Don't clear on network errors or other issues
-                const isAuthError =
-                    (refreshError as any)?.response?.status === 401 ||
-                    (refreshError as any)?.response?.status === 403 ||
-                    (refreshError as any)?.message?.includes('Unauthorized') ||
-                    (refreshError as any)?.message?.includes('Not authenticated');
+                const isAuthErr = isAuthenticationError(refreshError);
 
-                if (isAuthError) {
-                    console.log('[Axios] Clear auth error detected, clearing tokens...');
+                if (isAuthErr) {
+                    logger.warn('Clear auth error detected, clearing tokens...');
                     await tokenService.clearTokens();
                 } else {
-                    console.log('[Axios] Non-auth error during refresh, keeping tokens...');
+                    logger.info('Non-auth error during refresh, keeping tokens...');
                 }
 
                 // Optionally: trigger logout or redirect to login
@@ -146,12 +151,30 @@ axiosInstance.interceptors.response.use(
 
         // Handle network errors
         if (error.message === 'Network Error') {
-            return Promise.reject(new Error('Tidak dapat terhubung ke server. Periksa koneksi internet Anda.'));
+            const networkError = new NetworkErrorClass(
+                ERROR_MESSAGES.NETWORK_ERROR,
+                error,
+                false,
+                true
+            );
+            return Promise.reject(networkError);
         }
 
         // Handle timeout
         if (error.code === 'ECONNABORTED') {
-            return Promise.reject(new Error('Request timeout. Silakan coba lagi.'));
+            const timeoutError = new NetworkErrorClass(
+                ERROR_MESSAGES.TIMEOUT_ERROR,
+                error,
+                true,
+                false
+            );
+            return Promise.reject(timeoutError);
+        }
+
+        // Convert AxiosError to ApiError for consistent error handling
+        if (isAxiosError(error)) {
+            const apiError = axiosErrorToApiError(error);
+            return Promise.reject(apiError);
         }
 
         return Promise.reject(error);
@@ -169,11 +192,10 @@ export const isTokenExpiringSoon = async (): Promise<boolean> => {
 
         const now = Date.now();
         const timeUntilExpiry = expiry - now;
-        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
 
-        return timeUntilExpiry < thirtyMinutes && timeUntilExpiry > 0;
+        return timeUntilExpiry < API_CONSTANTS.TOKEN_REFRESH_THRESHOLD && timeUntilExpiry > 0;
     } catch (error) {
-        console.error('[Axios] Error checking token expiry:', error);
+        logger.error('Error checking token expiry', error);
         return false;
     }
 };
@@ -186,7 +208,7 @@ export const refreshTokenIfNeeded = async (): Promise<void> => {
         const expiringSoon = await isTokenExpiringSoon();
 
         if (expiringSoon) {
-            console.log('[Axios] Token expiring soon (< 30 min), refreshing...');
+            logger.info(`Token expiring soon (< ${API_CONSTANTS.TOKEN_REFRESH_THRESHOLD / TIME_CONSTANTS.MINUTE} min), refreshing...`);
             const refreshToken = await tokenService.getRefreshToken();
 
             if (refreshToken) {
@@ -196,10 +218,10 @@ export const refreshTokenIfNeeded = async (): Promise<void> => {
 
                 const newAccessToken = response.data.data?.access_token || response.data.access_token;
 
-                if (newAccessToken) {
-                    await tokenService.setToken(newAccessToken);
-                    console.log('[Axios] Token refreshed proactively');
-                }
+        }
+    } catch (error) {
+        logger.error('Proactive refresh failed', error);
+    }
             }
         }
     } catch (error) {
