@@ -380,6 +380,8 @@ export const id = {
     useNativeGallery: 'Silakan pilih foto dari galeri Anda. Fitur ini memerlukan implementasi native module untuk mengambil hasil foto.',
     useNativeCamera: 'Silakan ambil foto menggunakan kamera. Fitur ini memerlukan implementasi native module untuk mengambil hasil foto.',
     useMockImage: 'Gunakan Foto Mock',
+    noMenuEnabled: 'Saat ini menu tidak tersedia',
+    enableMenuToPreview: 'Aktifkan menu untuk melihat preview',
   },
   quickMenu: {},
 };

@@ -4,7 +4,7 @@
  * Responsive untuk semua device termasuk tablet
  */
 
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -53,7 +53,6 @@ const formatDateTime = (date: Date) => {
 };
 
 const getTypeStyles = (type: Notification['type'], colors: ThemeColors) => {
-  // Semua icon menggunakan primary color untuk konsistensi
   return {
     iconBg: colors.primary,
     iconColor: colors.surface,
@@ -61,7 +60,90 @@ const getTypeStyles = (type: Notification['type'], colors: ThemeColors) => {
   };
 };
 
-export const NotificationList: React.FC<NotificationListProps> = ({
+const NotificationItem = memo<{
+  notification: Notification;
+  isSelected: boolean;
+  selectionMode: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+  colors: ThemeColors;
+}>(({ notification, isSelected, selectionMode, onPress, onLongPress, colors }) => {
+  const typeStyles = useMemo(() => getTypeStyles(notification.type, colors), [notification.type, colors]);
+  const createdAt = useMemo(() => 
+    notification.createdAt instanceof Date
+      ? notification.createdAt
+      : new Date(notification.createdAt),
+    [notification.createdAt]
+  );
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.notificationItem,
+        {
+          borderBottomColor: colors.border,
+          backgroundColor: notification.isRead ? colors.surface : colors.primaryLight,
+          opacity: selectionMode && isSelected ? 0.7 : 1,
+        },
+      ]}
+      activeOpacity={0.85}
+      onPress={onPress}
+      onLongPress={onLongPress}
+    >
+      {selectionMode && (
+        <View style={[styles.checkboxContainer, { borderColor: colors.border }]}>
+          {isSelected && (
+            <TickCircle size={scale(20)} color={colors.primary} variant="Bold" />
+          )}
+        </View>
+      )}
+      
+      <View style={[styles.iconWrapper, { backgroundColor: typeStyles.iconBg }]}>
+        <NotificationBing
+          size={getIconSize('medium')}
+          color={typeStyles.iconColor}
+          variant="Bold"
+        />
+        {!notification.isRead && (
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: colors.error,
+              },
+            ]}
+          />
+        )}
+      </View>
+
+      <View style={styles.textContent}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          {notification.title}
+        </Text>
+        <Text
+          style={[styles.message, { color: colors.textSecondary }]}
+          numberOfLines={2}
+        >
+          {notification.message}
+        </Text>
+        <Text style={[styles.date, { color: colors.textTertiary || colors.textSecondary }]}>
+          {formatDateTime(createdAt)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.notification.id === nextProps.notification.id &&
+    prevProps.notification.isRead === nextProps.notification.isRead &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.selectionMode === nextProps.selectionMode
+  );
+});
+
+NotificationItem.displayName = 'NotificationItem';
+
+export const NotificationList: React.FC<NotificationListProps> = memo(({
   notifications,
   onNotificationPress,
   refreshing = false,
@@ -74,6 +156,38 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   const { t } = useTranslation();
   const horizontalPadding = getHorizontalPadding();
   const verticalPadding = getVerticalPadding();
+
+  const notificationItems = useMemo(() => {
+    return notifications.map(notification => {
+      const isSelected = selectedIds.has(notification.id);
+      
+      const handlePress = () => {
+        if (selectionMode && onSelectionChange) {
+          onSelectionChange(notification.id, !isSelected);
+        } else {
+          onNotificationPress?.(notification);
+        }
+      };
+
+      const handleLongPress = () => {
+        if (!selectionMode && onSelectionChange) {
+          onSelectionChange(notification.id, true);
+        }
+      };
+
+      return (
+        <NotificationItem
+          key={notification.id}
+          notification={notification}
+          isSelected={isSelected}
+          selectionMode={selectionMode}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          colors={colors}
+        />
+      );
+    });
+  }, [notifications, selectedIds, selectionMode, onNotificationPress, onSelectionChange, colors]);
 
   return (
     <ScrollView
@@ -100,87 +214,13 @@ export const NotificationList: React.FC<NotificationListProps> = ({
           {t('notifications.empty')}
         </Text>
       ) : (
-        notifications.map(notification => {
-          const typeStyles = getTypeStyles(notification.type, colors);
-          const createdAt =
-            notification.createdAt instanceof Date
-              ? notification.createdAt
-              : new Date(notification.createdAt);
-
-          const isSelected = selectedIds.has(notification.id);
-
-          return (
-            <TouchableOpacity
-              key={notification.id}
-              style={[
-                styles.notificationItem,
-                {
-                  borderBottomColor: colors.border,
-                  backgroundColor: notification.isRead ? colors.surface : colors.primaryLight,
-                  opacity: selectionMode && isSelected ? 0.7 : 1,
-                },
-              ]}
-              activeOpacity={0.85}
-              onPress={() => {
-                if (selectionMode && onSelectionChange) {
-                  onSelectionChange(notification.id, !isSelected);
-                } else {
-                  onNotificationPress?.(notification);
-                }
-              }}
-              onLongPress={() => {
-                if (!selectionMode && onSelectionChange) {
-                  onSelectionChange(notification.id, true);
-                }
-              }}
-            >
-              {selectionMode && (
-                <View style={[styles.checkboxContainer, { borderColor: colors.border }]}>
-                  {isSelected && (
-                    <TickCircle size={scale(20)} color={colors.primary} variant="Bold" />
-                  )}
-                </View>
-              )}
-              
-              <View style={[styles.iconWrapper, { backgroundColor: typeStyles.iconBg }]}>
-                <NotificationBing
-                  size={getIconSize('medium')}
-                  color={typeStyles.iconColor}
-                  variant="Bold"
-                />
-                {!notification.isRead && (
-                  <View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor: colors.error,
-                      },
-                    ]}
-                  />
-                )}
-              </View>
-
-              <View style={styles.textContent}>
-                <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                  {notification.title}
-                </Text>
-                <Text
-                  style={[styles.message, { color: colors.textSecondary }]}
-                  numberOfLines={2}
-                >
-                  {notification.message}
-                </Text>
-                <Text style={[styles.date, { color: colors.textTertiary || colors.textSecondary }]}>
-                  {formatDateTime(createdAt)}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
+        notificationItems
       )}
     </ScrollView>
   );
-};
+});
+
+NotificationList.displayName = 'NotificationList';
 
 const styles = StyleSheet.create({
   container: {
