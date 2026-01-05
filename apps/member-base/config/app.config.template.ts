@@ -4,14 +4,15 @@
  */
 
 import type { AppConfig } from '../../../packages/core/config/types/AppConfig';
-import Config from 'react-native-config';
+import Config from '../../../packages/core/native/Config';
 
 /**
  * Example app configuration
  * Replace with your company-specific config
  */
 export const appConfig: AppConfig = {
-  companyId: 'merchant-base',
+  companyInitial: 'MB', // Company initial (uppercase) - PRIMARY IDENTIFIER
+  companyId: 'merchant-base', // Company ID (kebab-case) - Auto-generated from companyInitial if not provided
   companyName: 'Merchant Base',
   segmentId: 'balance-management',
 
@@ -60,8 +61,7 @@ export const appConfig: AppConfig = {
 
   // Branding
   branding: {
-    primaryColor: '#0066CC', // Accent color - Theme Service akan auto-generate primaryLight & primaryDark
-    logo: '',
+    logo: 'assets/logo.png', // Logo path (relative path or URL) - Colors come from backend
     appName: 'Merchant Closepay',
   },
 

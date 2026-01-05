@@ -30,6 +30,7 @@ export interface ConfigService {
  * Digunakan ketika config belum di-load dari API/storage
  */
 const DEFAULT_CONFIG: AppConfig = {
+  companyInitial: 'DEFAULT',
   companyId: 'default',
   companyName: 'Default Company',
   tenantId: 'default',

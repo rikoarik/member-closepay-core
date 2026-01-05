@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple
 import argparse
 
 # Import existing modules
-from config_io import load_tenants, load_plugins, save_tenants, validate_tenant, validate_all_tenants, normalize_tenant_id
-from repo_generator import generate_repo, list_generated_apps, get_repo_root
+from config_io import load_tenants, load_plugins, save_tenants, validate_tenant, validate_all_tenants, normalize_tenant_id, validate_company_initial, validate_package_name, validate_logo_path
+from repo_generator import generate_repo, list_generated_apps, get_repo_root, normalize_company_initial
 
 
 class AppManager:
@@ -49,8 +49,9 @@ class AppManager:
         """Get tenant configuration."""
         return self.tenants.get(tenant_id)
     
-    def create_tenant(self, tenant_id: str, name: str, role: str = 'member', 
-                     enabled_features: List[str] = None, theme: Dict = None,
+    def create_tenant(self, tenant_id: str, app_name: str, company_initial: str,
+                     package_name: str, logo_path: str = '', 
+                     enabled_features: List[str] = None,
                      home_variant: str = 'member') -> Tuple[bool, str]:
         """Create a new tenant."""
         # Normalize tenant ID: lowercase, kebab-case format
@@ -65,19 +66,30 @@ class AppManager:
         if not tenant_id.replace('-', '').isalnum():
             return False, "Invalid tenant ID. Must be alphanumeric with dashes only"
         
-        # Default theme
-        if not theme:
-            theme = {
-                "primary": "#0066CC",
-                "primaryDark": "#0052A3",
-                "primaryLight": "#E6F2FF"
-            }
+        # Normalize the provided companyInitial
+        company_initial = normalize_company_initial(company_initial)
+        
+        # Validate companyInitial
+        is_valid, error = validate_company_initial(company_initial)
+        if not is_valid:
+            return False, error or "Invalid companyInitial format"
+        
+        # Validate packageName
+        is_valid, error = validate_package_name(package_name)
+        if not is_valid:
+            return False, error or "Invalid packageName format"
+        
+        # Validate logoPath (optional)
+        is_valid, error = validate_logo_path(logo_path)
+        if not is_valid:
+            return False, error or "Invalid logoPath format"
         
         new_tenant = {
             "id": tenant_id,
-            "name": name,
-            "role": role,
-            "theme": theme,
+            "companyInitial": company_initial,
+            "appName": app_name,
+            "packageName": package_name,
+            "logoPath": logo_path,
             "homeVariant": home_variant,
             "enabledFeatures": enabled_features or [],
             "homeTabs": [] if home_variant == 'member' else None

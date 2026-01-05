@@ -24,8 +24,9 @@ from typing import Dict, Optional
 from config_io import (
     normalize_tenant_id,
     load_tenants, load_plugins, save_tenants,
-    validate_tenant
+    validate_tenant, validate_company_initial, validate_package_name, validate_logo_path
 )
+from repo_generator import normalize_company_initial, to_company_id
 from ui_components import TenantDetailFrame, PluginMatrixFrame
 from repo_generator import generate_repo, list_generated_apps
 
@@ -74,6 +75,50 @@ class ClosepayManagerApp(tk.Tk):
             messagebox.showerror("Error Loading Tenants", error)
             sys.exit(1)
         self.tenants = tenants
+        
+        # Migrate old structure to new structure (backward compatibility)
+        migrated = False
+        for tenant_id, tenant in self.tenants.items():
+            # Check if migration needed (has 'role' or 'theme' but missing new fields)
+            needs_migration = False
+            
+            # Migrate 'name' to 'appName'
+            if 'name' in tenant and 'appName' not in tenant:
+                tenant['appName'] = tenant['name']
+                needs_migration = True
+            
+            # Remove 'role' (not needed, all are members)
+            if 'role' in tenant:
+                del tenant['role']
+                needs_migration = True
+            
+            # Remove 'theme' (colors come from backend)
+            if 'theme' in tenant:
+                del tenant['theme']
+                needs_migration = True
+            
+            # Add default packageName if missing
+            if 'packageName' not in tenant:
+                # Auto-generate from tenant_id as fallback
+                from repo_generator import to_company_id
+                company_id = to_company_id(tenant.get('companyInitial', tenant_id))
+                tenant['packageName'] = f"com.closepay.{company_id.replace('-', '.')}"
+                needs_migration = True
+            
+            # Add default logoPath if missing
+            if 'logoPath' not in tenant:
+                tenant['logoPath'] = 'assets/logo.png'
+                needs_migration = True
+            
+            if needs_migration:
+                migrated = True
+        
+        # Save if migration occurred
+        if migrated:
+            success, error = save_tenants(self.tenants, self.plugins)
+            if not success:
+                messagebox.showwarning("Migration Warning", 
+                                     f"Tenants were migrated but could not save:\n{error}")
         
         # Validate tenants
         from config_io import validate_all_tenants
@@ -262,69 +307,93 @@ class ClosepayManagerApp(tk.Tk):
     
     def _add_tenant(self):
         """Add a new tenant."""
-        # Get tenant ID
-        tenant_id = simpledialog.askstring(
+        # Get Company Initial
+        company_initial = simpledialog.askstring(
             "Add Tenant",
-            "Enter tenant ID:",
+            "Enter Company Initial (e.g., TKIFTP, MB, P2L):",
             parent=self
         )
         
-        if not tenant_id:
+        if not company_initial:
             return
         
-        # Normalize tenant ID: lowercase, kebab-case format
-        tenant_id = normalize_tenant_id(tenant_id)
+        company_initial = company_initial.strip().upper()
         
-        if not tenant_id:
-            messagebox.showerror("Error", "Tenant ID cannot be empty")
+        # Normalize and validate companyInitial
+        company_initial = normalize_company_initial(company_initial)
+        is_valid, error = validate_company_initial(company_initial)
+        if not is_valid:
+            messagebox.showerror("Error", error or "Invalid companyInitial format")
             return
+        
+        # Auto-generate tenant_id from companyInitial (kebab-case)
+        from repo_generator import to_company_id
+        tenant_id = to_company_id(company_initial)
         
         if tenant_id in self.tenants:
-            messagebox.showerror("Error", f"Tenant '{tenant_id}' already exists")
+            messagebox.showerror("Error", f"Tenant with company initial '{company_initial}' already exists (ID: {tenant_id})")
             return
         
-        # Get tenant name
-        tenant_name = simpledialog.askstring(
+        # Get App Name
+        app_name = simpledialog.askstring(
             "Add Tenant",
-            "Enter tenant name:",
+            "Enter App Name:",
             parent=self
         )
         
-        if not tenant_name:
+        if not app_name or not app_name.strip():
+            messagebox.showerror("Error", "App name cannot be empty")
             return
         
-        tenant_name = tenant_name.strip()
+        app_name = app_name.strip()
         
-        if not tenant_name:
-            messagebox.showerror("Error", "Tenant name cannot be empty")
+        # Get Package Name
+        package_name = simpledialog.askstring(
+            "Add Tenant",
+            "Enter Package Name (e.g., com.closepay.memberbase):",
+            parent=self
+        )
+        
+        if not package_name or not package_name.strip():
+            messagebox.showerror("Error", "Package name cannot be empty")
             return
         
-        # Duplicate DEFAULT tenant as base, or create default
-        if 'DEFAULT' in self.tenants:
-            new_tenant = self.tenants['DEFAULT'].copy()
-            new_tenant['id'] = tenant_id
-            new_tenant['name'] = tenant_name
-            # Clear enabled features for new tenant
-            new_tenant['enabledFeatures'] = []
-            # Set default to member variant
-            if 'homeVariant' not in new_tenant or new_tenant['homeVariant'] == 'dashboard':
-                new_tenant['homeVariant'] = 'member'
-                new_tenant['homeTabs'] = []
+        package_name = package_name.strip()
+        
+        # Validate packageName
+        is_valid, error = validate_package_name(package_name)
+        if not is_valid:
+            messagebox.showerror("Error", error or "Invalid packageName format")
+            return
+        
+        # Get Logo Path (optional)
+        logo_path = simpledialog.askstring(
+            "Add Tenant",
+            "Enter Logo Path (optional, e.g., assets/logo.png):",
+            parent=self
+        )
+        
+        if logo_path:
+            logo_path = logo_path.strip()
+            # Validate logoPath
+            is_valid, error = validate_logo_path(logo_path)
+            if not is_valid:
+                messagebox.showerror("Error", error or "Invalid logoPath format")
+                return
         else:
-            # Create default tenant (member-focused)
-            new_tenant = {
-                'id': tenant_id,
-                'name': tenant_name,
-                'role': 'member',
-                'enabledFeatures': [],
-                'theme': {
-                    'primary': '#0066CC',
-                    'primaryDark': '#0052A3',
-                    'primaryLight': '#E6F2FF'
-                },
-                'homeVariant': 'member',
-                'homeTabs': []
-            }
+            logo_path = ''
+        
+        # Create new tenant
+        new_tenant = {
+            'id': tenant_id,
+            'companyInitial': company_initial,
+            'appName': app_name,
+            'packageName': package_name,
+            'logoPath': logo_path,
+            'homeVariant': 'member',
+            'enabledFeatures': [],
+            'homeTabs': []
+        }
         
         # Add to tenants
         self.tenants[tenant_id] = new_tenant

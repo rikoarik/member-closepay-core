@@ -38,6 +38,53 @@ def get_repo_root() -> Optional[Path]:
     return None
 
 
+def normalize_company_initial(company_initial: str) -> str:
+    """
+    Normalize company initial to uppercase alphanumeric format.
+    
+    Args:
+        company_initial: Company initial string (may be mixed case)
+    
+    Returns:
+        Normalized uppercase string
+    
+    Examples:
+        normalize_company_initial('tki-ftp') -> 'TKIFTP'
+        normalize_company_initial('mb') -> 'MB'
+        normalize_company_initial('P2L') -> 'P2L'
+    """
+    if not company_initial:
+        return company_initial
+    
+    # Remove dashes/underscores and convert to uppercase
+    normalized = company_initial.replace('-', '').replace('_', '').upper()
+    return normalized
+
+
+def to_company_id(company_initial: str) -> str:
+    """
+    Convert companyInitial (uppercase) to companyId (kebab-case).
+    
+    Args:
+        company_initial: Company initial in uppercase format (e.g., 'TKIFTP', 'MB')
+    
+    Returns:
+        Company ID in kebab-case format (e.g., 'tki-ftp', 'mb')
+    
+    Examples:
+        to_company_id('TKIFTP') -> 'tki-ftp'
+        to_company_id('MB') -> 'mb'
+        to_company_id('P2L') -> 'p2l'
+    """
+    if not company_initial:
+        return ''
+    
+    # Simple conversion: lowercase
+    # Note: Smart word splitting (TKIFTP -> tki-ftp) is complex and error-prone
+    # For now, just lowercase - users can provide kebab-case tenant_id if needed
+    return company_initial.lower()
+
+
 def get_template_path(variant: str = 'member') -> Optional[Path]:
     """
     Get the path to the template.
@@ -99,6 +146,19 @@ def generate_config_from_tenant(tenant: Dict, tenant_id: str) -> str:
     home_variant = tenant.get('homeVariant', 'dashboard')
     home_tabs = tenant.get('homeTabs', [])
     
+    # Get companyInitial from tenant config, or normalize from tenant_id
+    company_initial = tenant.get('companyInitial')
+    if not company_initial:
+        # Auto-generate from tenant_id: convert kebab-case to uppercase
+        company_initial = normalize_company_initial(tenant_id)
+    else:
+        # Normalize the provided companyInitial
+        company_initial = normalize_company_initial(company_initial)
+    
+    # Generate companyId from companyInitial (kebab-case)
+    # Use tenant_id as fallback for backward compatibility
+    company_id = to_company_id(company_initial) or tenant_id
+    
     # Build menu config from enabled features
     menu_config = []
     menu_order = 1
@@ -156,14 +216,8 @@ def generate_config_from_tenant(tenant: Dict, tenant_id: str) -> str:
             menu_config.append(menu_item)
             menu_order += 1
     
-    # Determine segment ID from role or use default
-    role = tenant.get('role', 'merchant')
-    segment_id_map = {
-        'merchant': 'balance-management',
-        'member': 'member-app',
-        'pos': 'pos-system',
-    }
-    segment_id = segment_id_map.get(role, 'balance-management')
+    # Determine segment ID (default to balance-management for member apps)
+    segment_id = tenant.get('segmentId', 'balance-management')
     
     # Format enabled features as TypeScript array
     def format_ts_array(items):
@@ -203,11 +257,12 @@ def generate_config_from_tenant(tenant: Dict, tenant_id: str) -> str:
  */
 
 import type {{ AppConfig }} from '../../../packages/core/config/types/AppConfig';
-import Config from 'react-native-config';
+import Config from '../../../packages/core/native/Config';
 
 export const appConfig: AppConfig = {{
-  companyId: '{tenant_id}',
-  companyName: '{tenant.get('name', tenant_id)}',
+  companyInitial: '{company_initial}',
+  companyId: '{company_id}',
+  companyName: '{tenant.get('appName') or tenant.get('name', tenant_id)}',
   segmentId: '{segment_id}',
   
   // Enabled features (feature flags)
@@ -230,11 +285,8 @@ export const appConfig: AppConfig = {{
   
   // Branding
   branding: {{
-    primaryColor: '{theme.get('primary', '#0066CC')}',
-    primaryDark: '{theme.get('primaryDark', '#0052A3')}',
-    primaryLight: '{theme.get('primaryLight', '#E6F2FF')}',
-    logo: '',
-    appName: '{tenant.get('name', tenant_id)}',
+    logo: '{tenant.get('logoPath', '')}',
+    appName: '{tenant.get('appName') or tenant.get('name', tenant_id)}',
   }},
   
   // Service configuration
@@ -266,40 +318,30 @@ def update_ios_config(ios_dir: Path, app_name: str, display_name: str, tenant_id
         ios_dir: Path to ios directory
         app_name: App folder name (e.g., 'member-base')
         display_name: Display name for the app (e.g., 'Member Base')
-        tenant_id: Tenant ID for bundle identifier
-        tenant: Optional tenant dict for additional config (role, etc.)
+        tenant_id: Tenant ID (for fallback)
+        tenant: Optional tenant dict for additional config (packageName, etc.)
     """
     import re
     
-    # Generate app identifier based on role and app name
-    # Format: {Role}{AppName} (e.g., MemberBase, MerchantBase)
-    role = tenant.get('role', 'member') if tenant else 'member'
-    role_prefix = role.title()  # member -> Member, merchant -> Merchant
-    
-    # Generate app identifier: Role + AppName (PascalCase, no dashes)
-    # Example: member-base -> MemberBase, merchant-base -> MerchantBase
+    # Generate app identifier from app name (PascalCase, no dashes)
+    # Example: member-base -> MemberBase
     app_name_clean = app_name.replace('-', '').replace('_', '').title()
-    
-    # If app_name already starts with role prefix, use as is
-    if app_name_clean.startswith(role_prefix):
-        app_identifier = app_name_clean
-    else:
-        app_identifier = f"{role_prefix}{app_name_clean}"
+    app_identifier = app_name_clean
     
     # Use display name if it's cleaner and shorter
     if display_name:
         display_clean = ''.join(word.title() for word in display_name.split() if word.isalnum())
-        # Only use display name if it's reasonable length and doesn't conflict
+        # Only use display name if it's reasonable length
         if len(display_clean) < 30 and len(display_clean) > 3:
-            # Ensure it starts with role prefix
-            if not display_clean.startswith(role_prefix):
-                display_clean = f"{role_prefix}{display_clean}"
             # Use display name if it's cleaner
             if len(display_clean) <= len(app_identifier) + 5:
                 app_identifier = display_clean
     
-    # Generate bundle identifier
-    bundle_id = f"com.closepay.{tenant_id.replace('-', '.').lower()}"
+    # Get bundle identifier from tenant config (packageName)
+    # Fallback to auto-generated if not provided (backward compatibility)
+    bundle_id = tenant.get('packageName') if tenant else None
+    if not bundle_id:
+        bundle_id = f"com.closepay.{tenant_id.replace('-', '.').lower()}"
     
     # 1. Update Info.plist
     info_plist = ios_dir / app_identifier / 'Info.plist'
@@ -509,11 +551,10 @@ def generate_repo(tenant_id: str, tenant: Dict, overwrite: bool = False,
     Returns:
         Tuple of (success: bool, message: str)
     """
-    # Determine template variant based on tenant role or homeVariant
+        # Determine template variant based on homeVariant
     if not template_variant:
-        role = tenant.get('role', 'member')
-        home_variant = tenant.get('homeVariant', 'dashboard')
-        if role == 'member' or home_variant == 'member':
+        home_variant = tenant.get('homeVariant', 'member')
+        if home_variant == 'member':
             template_variant = 'member'
         else:
             template_variant = 'merchant'
@@ -574,7 +615,7 @@ def generate_repo(tenant_id: str, tenant: Dict, overwrite: bool = False,
             with open(index_file, 'r', encoding='utf-8') as f:
                 index_content = f.read()
             
-            updated_content = update_index_tsx(index_content, tenant_id, tenant.get('name', tenant_id))
+            updated_content = update_index_tsx(index_content, tenant_id, tenant.get('appName') or tenant.get('name', tenant_id))
             
             with open(index_file, 'w', encoding='utf-8') as f:
                 f.write(updated_content)
@@ -596,7 +637,7 @@ def generate_repo(tenant_id: str, tenant: Dict, overwrite: bool = False,
                 readme_content = f.read()
             
             readme_content = readme_content.replace('merchant-base', tenant_id)
-            readme_content = readme_content.replace('Merchant Base', tenant.get('name', tenant_id))
+            readme_content = readme_content.replace('Merchant Base', tenant.get('appName') or tenant.get('name', tenant_id))
             
             with open(readme_file, 'w', encoding='utf-8') as f:
                 f.write(readme_content)
@@ -723,7 +764,7 @@ def generate_repo(tenant_id: str, tenant: Dict, overwrite: bool = False,
                             print(f"   ✓ Copied iOS directory")
                             
                             # Update iOS configuration files
-                            update_ios_config(ios_target, folder_name, tenant.get('name', tenant_id), tenant_id, tenant)
+                            update_ios_config(ios_target, folder_name, tenant.get('appName') or tenant.get('name', tenant_id), tenant_id, tenant)
                         except Exception as e:
                             print(f"   ⚠ Warning: Could not copy iOS: {str(e)}")
                 

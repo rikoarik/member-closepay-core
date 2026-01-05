@@ -7,9 +7,10 @@ import type { AppConfig } from '../../../packages/core/config/types/AppConfig';
 import Config from '../../../packages/core/native/Config';
 
 export const appConfig: AppConfig = {
-  companyId: 'member-base',
-  companyName: 'Member Base App',
-  tenantId: 'member-base',
+  companyInitial: 'TKIFTP', // Company initial (uppercase) - PRIMARY IDENTIFIER
+  companyId: 'tki-ftp', // Company ID (kebab-case) - Auto-generated from companyInitial if not provided
+  companyName: 'TKIFTP',
+  tenantId: 'tki-ftp',
   segmentId: 'balance-management',
 
   // Enabled features (feature flags)
@@ -24,14 +25,14 @@ export const appConfig: AppConfig = {
   // Home tabs configuration (for member variant)
   homeTabs: [
     {
-      id: 'home',
-      label: 'Beranda',
+      id: 'activity',
+      label: 'Aktivitas',
       visible: true,
       order: 1,
     },
     {
-      id: 'activity',
-      label: 'Aktivitas',
+      id: 'home',
+      label: 'Beranda',
       visible: true,
       order: 2,
     },
@@ -39,7 +40,7 @@ export const appConfig: AppConfig = {
       id: 'news',
       label: 'Berita',
       visible: true,
-      order: 2,
+      order: 3,
     }
   ],
 
@@ -51,7 +52,7 @@ export const appConfig: AppConfig = {
       icon: 'home',
       route: 'Home',
       visible: true,
-      order: 1,
+      order: 2,
     }
   ],
 
@@ -60,7 +61,7 @@ export const appConfig: AppConfig = {
 
   // Branding
   branding: {
-    logo: '', // Set logo URL here (e.g., 'https://example.com/logo.png')
+    logo: 'assets/logo.png', // Set logo URL here (e.g., 'https://example.com/logo.png')
     appName: 'Member Base App',
   },
 

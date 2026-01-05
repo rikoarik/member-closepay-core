@@ -17,6 +17,7 @@ export * from './utils/appVersion';
 export * from './utils/errorHandler';
 export * from './utils/validation';
 export * from './utils/sanitization';
+export * from './utils/companyUtils';
 export { logger, createLogger, setLoggerConfig, getLoggerConfig, LogLevel, type LoggerConfig } from './services/loggerService';
 export { BaseService } from './services/BaseService';
 export * from './constants';

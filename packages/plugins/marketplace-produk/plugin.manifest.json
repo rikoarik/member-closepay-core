@@ -1,0 +1,19 @@
+{
+    "id": "marketplace-produk",
+    "name": "Marketplace Produk",
+    "version": "1.0.0",
+    "description": "Product marketplace for general merchandise",
+    "type": "segment-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "payment"
+    ],
+    "exports": {
+        "screens": {}
+    },
+    "routes": [],
+    "permissions": [
+        "marketplace:product:view",
+        "marketplace:product:order"
+    ]
+}

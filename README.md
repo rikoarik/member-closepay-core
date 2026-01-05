@@ -70,6 +70,25 @@ npm run android
 npm run ios
 ```
 
+## Company Management System
+
+The Closepay Member Base App uses a **company management system** where each company is identified by:
+
+- **`companyInitial`**: Primary identifier (uppercase, e.g., `TKIFTP`, `MB`, `P2L`)
+- **`companyId`**: Secondary identifier (kebab-case, e.g., `tki-ftp`, `mb`, `p2l`) - Auto-generated from `companyInitial`
+
+### Quick Reference
+
+- **Format**: Uppercase alphanumeric (1-20 chars), must start with letter
+- **Examples**: `TKIFTP`, `MB`, `P2L`, `COMPANY_NAME`
+- **Validation**: Automatic with clear error messages
+- **Auto-generation**: `companyId` auto-generated from `companyInitial`
+
+For detailed documentation, see:
+- [Getting Started Guide](./docs/GETTING_STARTED.md) - Quick start for new developers
+- [Examples](./docs/EXAMPLES.md) - Configuration examples and format reference
+- [App Manager README](./apps/member-base/tools/app-manager/README.md) - Tool documentation
+
 ## Project Structure
 
 ```
@@ -79,6 +98,8 @@ member-base-app/
 │       ├── config/
 │       │   ├── app.config.ts     # App configuration
 │       │   └── app.config.template.ts
+│       └── tools/
+│           └── app-manager/      # Company management tools
 │       ├── src/
 │       │   ├── components/       # App-specific components
 │       │   │   └── home/        # Home screen components

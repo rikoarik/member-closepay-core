@@ -1,0 +1,23 @@
+{
+    "id": "order",
+    "name": "Order Management",
+    "version": "1.0.0",
+    "description": "Order processing, tracking, and management system",
+    "type": "segment-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "payment",
+        "catalog"
+    ],
+    "exports": {
+        "components": [],
+        "hooks": [],
+        "models": []
+    },
+    "routes": [],
+    "permissions": [
+        "order:view",
+        "order:create",
+        "order:manage"
+    ]
+}

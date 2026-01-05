@@ -4,9 +4,11 @@
  */
 
 import { TenantId } from '../tenants';
+import { toCompanyId, validateCompanyInitial, type ValidationResult } from '../utils/companyUtils';
 
 export interface AppConfig {
-  companyId: string;
+  companyInitial: string; // Company initial/short code (e.g., 'MB', 'TKIFTP') - PRIMARY IDENTIFIER
+  companyId?: string; // Company ID (kebab-case) - Auto-generated from companyInitial if not provided
   companyName: string;
   tenantId?: TenantId; // Tenant ID for multi-tenant support
   segmentId: 'balance-management' | 'campus' | 'fnb' | 'umroh' | 'community' | 'retribution' | 'koperasi' | 'tourism' | 'sport-center' | 'retail';
@@ -107,4 +109,35 @@ export interface QrButtonConfig {
   backgroundColor?: string; // Background color of QR button
   iconColor?: string; // Icon color (default: #FAFAFA)
   size?: number; // Button size in dp
+}
+
+/**
+ * Normalize AppConfig: ensure companyId is generated from companyInitial if not provided
+ * 
+ * @param config Partial AppConfig (may be missing companyId)
+ * @returns Complete AppConfig with companyId auto-generated if missing
+ * 
+ * @example
+ * normalizeAppConfig({ companyInitial: 'TKIFTP', companyName: 'TKIFTP' })
+ * // => { companyInitial: 'TKIFTP', companyId: 'tki-ftp', companyName: 'TKIFTP', ... }
+ */
+export function normalizeAppConfig(config: Partial<AppConfig>): AppConfig {
+  if (!config.companyInitial) {
+    throw new Error('companyInitial is required');
+  }
+
+  // Validate companyInitial format
+  const validation = validateCompanyInitial(config.companyInitial);
+  if (!validation.isValid) {
+    throw new Error(validation.error || 'Invalid companyInitial format');
+  }
+
+  // Auto-generate companyId if not provided
+  const companyId = config.companyId || toCompanyId(config.companyInitial);
+
+  return {
+    ...config,
+    companyInitial: config.companyInitial,
+    companyId,
+  } as AppConfig;
 }

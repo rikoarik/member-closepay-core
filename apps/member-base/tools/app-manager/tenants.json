@@ -1,13 +1,10 @@
 {
   "member-base": {
     "id": "member-base",
-    "name": "Member Base App",
-    "role": "member",
-    "theme": {
-      "primary": "#0066CC",
-      "primaryDark": "#0052A3",
-      "primaryLight": "#E6F2FF"
-    },
+    "companyInitial": "MB",
+    "appName": "Member Base App",
+    "packageName": "com.closepay.memberbase",
+    "logoPath": "assets/logo.png",
     "homeVariant": "member",
     "enabledFeatures": [],
     "homeTabs": [

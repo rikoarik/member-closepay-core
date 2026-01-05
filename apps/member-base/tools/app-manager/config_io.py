@@ -92,20 +92,146 @@ def load_plugins(file_path: Optional[str] = None) -> Tuple[Dict, Optional[str]]:
         return {}, f"Error reading {path}: {str(e)}"
 
 
-def validate_hex_color(color: str) -> bool:
-    """Validate hex color format (#RRGGBB)."""
-    if not color or not isinstance(color, str):
-        return False
-    color = color.strip().upper()
-    if not color.startswith('#'):
-        return False
-    if len(color) != 7:
-        return False
-    try:
-        int(color[1:], 16)
-        return True
-    except ValueError:
-        return False
+def validate_package_name(package_name: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate package name format (reverse domain notation).
+    
+    Rules:
+    - Must be in reverse domain format (e.g., com.company.app)
+    - Must contain at least 2 parts separated by dots
+    - Each part must be alphanumeric (lowercase letters, numbers, underscores)
+    - Each part must start with a letter
+    - Total length should be reasonable (max 100 chars)
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not package_name:
+        return False, "Package name is required. Expected format: com.company.app (reverse domain notation)"
+    
+    if not isinstance(package_name, str):
+        return False, "Package name must be a string. Expected format: com.company.app (reverse domain notation)"
+    
+    trimmed = package_name.strip()
+    
+    if len(trimmed) == 0:
+        return False, "Package name cannot be empty. Expected format: com.company.app (reverse domain notation)"
+    
+    if len(trimmed) > 100:
+        return False, f"Package name is too long ({len(trimmed)} characters). Maximum length is 100 characters. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+    
+    # Split by dots
+    parts = trimmed.split('.')
+    
+    if len(parts) < 2:
+        return False, f"Package name must contain at least 2 parts separated by dots. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+    
+    # Validate each part
+    for i, part in enumerate(parts):
+        if not part:
+            return False, f"Package name contains empty part. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+        
+        # Must start with a letter
+        if not part[0].isalpha():
+            return False, f"Package name part '{part}' must start with a letter. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+        
+        # Must contain only lowercase letters, numbers, and underscores
+        if not all(c.isalnum() or c == '_' for c in part):
+            return False, f"Package name part '{part}' contains invalid characters. Only lowercase letters, numbers, and underscores are allowed. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+        
+        # Should be lowercase (recommendation)
+        if part != part.lower():
+            return False, f"Package name part '{part}' should be lowercase. Expected format: com.company.app (reverse domain notation). Got: '{trimmed}'"
+    
+    return True, None
+
+
+def validate_logo_path(logo_path: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate logo path format (relative path or URL).
+    
+    Rules:
+    - Optional field (empty string is valid)
+    - If provided, must be either:
+      - Relative path (e.g., assets/logo.png)
+      - URL (http:// or https://)
+    - Path should not contain invalid characters
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not logo_path:
+        # Empty is valid (optional field)
+        return True, None
+    
+    if not isinstance(logo_path, str):
+        return False, "Logo path must be a string. Expected: relative path (e.g., assets/logo.png) or URL (e.g., https://example.com/logo.png)"
+    
+    trimmed = logo_path.strip()
+    
+    if len(trimmed) == 0:
+        # Empty is valid
+        return True, None
+    
+    # Check if it's a URL
+    if trimmed.startswith('http://') or trimmed.startswith('https://'):
+        # Basic URL validation
+        if len(trimmed) > 500:
+            return False, f"Logo URL is too long ({len(trimmed)} characters). Maximum length is 500 characters. Got: '{trimmed}'"
+        return True, None
+    
+    # Check if it's a relative path
+    # Should not contain invalid path characters
+    invalid_chars = ['<', '>', '|', '?', '*', '"']
+    for char in invalid_chars:
+        if char in trimmed:
+            return False, f"Logo path contains invalid character '{char}'. Expected: relative path (e.g., assets/logo.png) or URL (e.g., https://example.com/logo.png). Got: '{trimmed}'"
+    
+    # Should not be an absolute path (on Windows or Unix)
+    if trimmed.startswith('/') or (len(trimmed) > 1 and trimmed[1] == ':'):
+        return False, f"Logo path should be a relative path, not an absolute path. Expected: relative path (e.g., assets/logo.png) or URL (e.g., https://example.com/logo.png). Got: '{trimmed}'"
+    
+    if len(trimmed) > 200:
+        return False, f"Logo path is too long ({len(trimmed)} characters). Maximum length is 200 characters. Got: '{trimmed}'"
+    
+    return True, None
+
+
+def validate_company_initial(company_initial: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate companyInitial format.
+    
+    Rules:
+    - Must be 1-20 characters
+    - Must contain only alphanumeric characters and underscores
+    - Must start with a letter
+    
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not company_initial:
+        return False, "❌ Company initial is required. Expected: Uppercase alphanumeric string (e.g., 'TKIFTP', 'MB', 'P2L')"
+    
+    if not isinstance(company_initial, str):
+        return False, "❌ Company initial must be a string. Expected: Uppercase alphanumeric string (e.g., 'TKIFTP', 'MB', 'P2L')"
+    
+    trimmed = company_initial.strip()
+    
+    if len(trimmed) == 0:
+        return False, "❌ Company initial cannot be empty. Expected: Uppercase alphanumeric string (e.g., 'TKIFTP', 'MB', 'P2L')"
+    
+    if len(trimmed) > 20:
+        return False, f"❌ Company initial is too long ({len(trimmed)} characters). Maximum length is 20 characters. Expected format: Uppercase alphanumeric string (e.g., 'TKIFTP', 'MB', 'P2L'). Got: '{trimmed}'"
+    
+    # Must contain only alphanumeric characters and underscores
+    if not all(c.isalnum() or c == '_' for c in trimmed):
+        return False, f"❌ Company initial contains invalid characters. Only uppercase letters, numbers, and underscores are allowed. Expected format: Uppercase alphanumeric string (e.g., 'TKIFTP', 'MB', 'P2L'). Got: '{trimmed}'"
+    
+    # Must start with a letter
+    if not trimmed[0].isalpha():
+        return False, f"❌ Company initial must start with a letter. Expected format: Uppercase alphanumeric string starting with a letter (e.g., 'TKIFTP', 'MB', 'P2L'). Got: '{trimmed}'"
+    
+    return True, None
 
 
 def validate_tenant(tenant: Dict, tenant_id: str, available_plugins: Dict) -> Tuple[bool, Optional[str]]:
@@ -122,26 +248,42 @@ def validate_tenant(tenant: Dict, tenant_id: str, available_plugins: Dict) -> Tu
     if tenant['id'] != tenant_id:
         return False, f"Tenant ID mismatch: key '{tenant_id}' but id field is '{tenant['id']}'"
     
-    if 'name' not in tenant or not tenant.get('name'):
-        return False, f"Tenant '{tenant_id}': name is required"
+    # Validate appName (required field, supports backward compatibility with 'name')
+    app_name = tenant.get('appName') or tenant.get('name')
+    if not app_name or not app_name.strip():
+        return False, f"Tenant '{tenant_id}': appName is required"
     
-    if 'role' not in tenant:
-        return False, f"Tenant '{tenant_id}': role is required"
+    # Validate companyInitial (required field)
+    company_initial = tenant.get('companyInitial')
+    if not company_initial:
+        # Auto-generate from tenant_id if not provided (backward compatibility)
+        # But still validate the format
+        import re
+        # Normalize tenant_id: remove dashes and convert to uppercase
+        auto_initial = tenant_id.replace('-', '').replace('_', '').upper()
+        is_valid, error = validate_company_initial(auto_initial)
+        if not is_valid:
+            return False, f"Tenant '{tenant_id}': {error}"
+    else:
+        # Validate provided companyInitial
+        is_valid, error = validate_company_initial(company_initial)
+        if not is_valid:
+            return False, f"Tenant '{tenant_id}': {error}"
     
-    if tenant['role'] not in ['merchant', 'member', 'admin']:
-        return False, f"Tenant '{tenant_id}': role must be 'merchant', 'member', or 'admin'"
+    # Validate packageName (required field)
+    package_name = tenant.get('packageName')
+    if not package_name:
+        return False, f"Tenant '{tenant_id}': packageName is required"
     
-    # Theme validation
-    if 'theme' not in tenant or not isinstance(tenant['theme'], dict):
-        return False, f"Tenant '{tenant_id}': theme object is required"
+    is_valid, error = validate_package_name(package_name)
+    if not is_valid:
+        return False, f"Tenant '{tenant_id}': {error}"
     
-    theme = tenant['theme']
-    required_theme_fields = ['primary', 'primaryDark', 'primaryLight']
-    for field in required_theme_fields:
-        if field not in theme:
-            return False, f"Tenant '{tenant_id}': theme.{field} is required"
-        if not validate_hex_color(theme[field]):
-            return False, f"Tenant '{tenant_id}': theme.{field} must be a valid hex color (#RRGGBB)"
+    # Validate logoPath (optional field)
+    logo_path = tenant.get('logoPath', '')
+    is_valid, error = validate_logo_path(logo_path)
+    if not is_valid:
+        return False, f"Tenant '{tenant_id}': {error}"
     
     # Enabled features validation
     if 'enabledFeatures' not in tenant:

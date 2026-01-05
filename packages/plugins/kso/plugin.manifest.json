@@ -1,0 +1,18 @@
+{
+    "id": "kso",
+    "name": "KSO",
+    "version": "1.0.0",
+    "description": "Kerja Sama Operasional (Operational Cooperation) management",
+    "type": "segment-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "payment"
+    ],
+    "exports": {
+        "screens": {}
+    },
+    "routes": [],
+    "permissions": [
+        "kso:manage"
+    ]
+}

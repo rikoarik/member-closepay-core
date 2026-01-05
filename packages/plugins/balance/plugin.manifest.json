@@ -1,0 +1,50 @@
+{
+    "id": "balance",
+    "name": "Balance Management",
+    "version": "1.0.0",
+    "description": "Core balance management features including transaction history and balance tracking",
+    "type": "core-plugin",
+    "author": "Closepay Team",
+    "dependencies": [],
+    "exports": {
+        "components": [
+            "TransactionHistoryScreen",
+            "WithdrawIcon",
+            "TopUpIcon",
+            "BalanceCard"
+        ],
+        "hooks": [
+            "useBalance"
+        ],
+        "services": [
+            "balanceService",
+            "mutationService"
+        ],
+        "models": [
+            "TransactionType",
+            "BalanceAccount",
+            "BalanceMutation"
+        ],
+        "screens": {
+            "TransactionHistory": "TransactionHistoryScreen"
+        }
+    },
+    "routes": [
+        {
+            "name": "BalanceDetail",
+            "path": "/balance/detail",
+            "component": "TransactionHistoryScreen",
+            "permissions": [
+                "read:balance"
+            ],
+            "meta": {
+                "title": "Transaction History",
+                "showInMenu": false
+            }
+        }
+    ],
+    "permissions": [
+        "read:balance",
+        "write:balance"
+    ]
+}

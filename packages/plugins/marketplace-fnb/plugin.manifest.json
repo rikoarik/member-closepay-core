@@ -1,0 +1,19 @@
+{
+    "id": "marketplace-fnb",
+    "name": "Marketplace F&B",
+    "version": "1.0.0",
+    "description": "Food and beverage marketplace for ordering and delivery",
+    "type": "segment-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "payment"
+    ],
+    "exports": {
+        "screens": {}
+    },
+    "routes": [],
+    "permissions": [
+        "marketplace:fnb:view",
+        "marketplace:fnb:order"
+    ]
+}

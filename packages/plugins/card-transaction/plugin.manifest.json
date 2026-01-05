@@ -1,0 +1,18 @@
+{
+    "id": "card-transaction",
+    "name": "Card Transaction",
+    "version": "1.0.0",
+    "description": "Card-based payment transaction processing",
+    "type": "segment-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "payment"
+    ],
+    "exports": {
+        "screens": {}
+    },
+    "routes": [],
+    "permissions": [
+        "card:process"
+    ]
+}

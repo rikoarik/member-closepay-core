@@ -1,0 +1,168 @@
+{
+    "id": "payment",
+    "name": "Payment Management",
+    "version": "1.0.0",
+    "description": "Payment processing including top-up, withdrawal, and transfer services",
+    "type": "core-plugin",
+    "author": "Closepay Team",
+    "dependencies": [
+        "balance"
+    ],
+    "exports": {
+        "components": [
+            "TopUpScreen",
+            "VirtualAccountScreen",
+            "WithdrawScreen",
+            "WithdrawSuccessScreen",
+            "TopUpMemberScreen",
+            "TopUpMemberSummaryScreen",
+            "TopUpMemberPinScreen",
+            "TopUpMemberSuccessScreen",
+            "TapKartuSummaryScreen",
+            "PinInput",
+            "WithdrawConfirmModal",
+            "AutoWithdrawModal"
+        ],
+        "services": [
+            "paymentService",
+            "topUpService",
+            "withdrawService",
+            "transferService",
+            "cardTransactionService"
+        ],
+        "screens": {
+            "TopUp": "TopUpScreen",
+            "VirtualAccount": "VirtualAccountScreen",
+            "Withdraw": "WithdrawScreen",
+            "WithdrawSuccess": "WithdrawSuccessScreen",
+            "TopUpMember": "TopUpMemberScreen",
+            "TopUpMemberSummary": "TopUpMemberSummaryScreen",
+            "TopUpMemberPin": "TopUpMemberPinScreen",
+            "TopUpMemberSuccess": "TopUpMemberSuccessScreen",
+            "TapKartuSummary": "TapKartuSummaryScreen"
+        }
+    },
+    "routes": [
+        {
+            "name": "TopUp",
+            "path": "/payment/topup",
+            "component": "TopUpScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Top Up Balance",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "VirtualAccount",
+            "path": "/payment/virtual-account",
+            "component": "VirtualAccountScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Virtual Account",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "Withdraw",
+            "path": "/payment/withdraw",
+            "component": "WithdrawScreen",
+            "permissions": [
+                "payment:withdraw"
+            ],
+            "meta": {
+                "title": "Withdraw Funds",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "WithdrawSuccess",
+            "path": "/payment/withdraw/success",
+            "component": "WithdrawSuccessScreen",
+            "permissions": [
+                "payment:withdraw"
+            ],
+            "meta": {
+                "title": "Withdrawal Successful",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "TopUpMember",
+            "path": "/payment/topup-member",
+            "component": "TopUpMemberScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Top Up Saldo Member",
+                "showInMenu": true,
+                "icon": "topup"
+            }
+        },
+        {
+            "name": "TopUpMemberSummary",
+            "path": "/payment/topup-member/summary",
+            "component": "TopUpMemberSummaryScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Ringkasan Top Up Member",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "TopUpMemberPin",
+            "path": "/payment/topup-member/pin",
+            "component": "TopUpMemberPinScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Masukkan PIN",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "TopUpMemberSuccess",
+            "path": "/payment/topup-member/success",
+            "component": "TopUpMemberSuccessScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Top Up Member Berhasil",
+                "showInMenu": false
+            }
+        },
+        {
+            "name": "TapKartuSummary",
+            "path": "/payment/tap-kartu/summary",
+            "component": "TapKartuSummaryScreen",
+            "permissions": [
+                "payment:topup"
+            ],
+            "meta": {
+                "title": "Tap Kartu Summary",
+                "showInMenu": false
+            }
+        }
+    ],
+    "permissions": [
+        "payment:topup",
+        "payment:withdraw",
+        "payment:transfer"
+    ],
+    "config": {
+        "minTopUp": 10000,
+        "maxTopUp": 10000000,
+        "minWithdraw": 10000,
+        "maxWithdraw": 100000000,
+        "withdrawalFee": 2500
+    }
+}
